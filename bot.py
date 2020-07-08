@@ -25,12 +25,14 @@ class HighlightBot(commands.Bot):
         with open("config.json", "r") as f:
             self.config = json.load(f)
         
-        self.cogs_to_add = ["cogs.highlight"]
+        self.cogs_to_add = ["cogs.highlight", "cogs.meta"]
 
         self.loop.create_task(self.load_cogs())
         self.loop.create_task(self.prepare_bot())
 
     async def load_cogs(self):
+        bot.remove_command("help")
+
         self.load_extension("jishaku")
         self.get_command("jishaku").hidden = True
 
@@ -48,7 +50,14 @@ class HighlightBot(commands.Bot):
             )
         ''')
 
-        self.cached_words = await self.db.fetch("SELECT word FROM words")
+        await self.db.execute('''
+           CREATE TABLE IF NOT EXISTS blocks(
+               userid text,
+               blockedid text
+           )
+        ''')
+
+        self.cached_words = [row[0] for row in await self.db.fetch("SELECT word FROM words")]
         
     async def on_ready(self):
         logging.info(f"Logged in as {self.user.name} - {self.user.id}")
