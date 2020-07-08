@@ -15,7 +15,7 @@ class Highlight(commands.Cog):
 
         rows = None
         for word in self.bot.cached_words:
-            if word in message.content:
+            if word in message.content.lower():
                 rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, str(message.guild.id))
         
         if not rows or len(rows) == 0:
@@ -44,8 +44,11 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     @commands.command(name="add", description="Adds a word (words guild specific)", usage="[word]")
     async def add(self, ctx, *, word):
+        word = word.lower()
+        
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM words WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3", str(ctx.author.id), str(ctx.guild.id), word))[0][0]:
             return await ctx.send("❌ You already have that word")
+
         await self.bot.db.execute("INSERT INTO words (userid, guildid, word) VALUES ($1, $2, $3)", str(ctx.author.id), str(ctx.guild.id), word)
 
         if word not in self.bot.cached_words:
