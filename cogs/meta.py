@@ -8,14 +8,29 @@ class Meta(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name="help", description="Help for highlight bot")
-    async def help(self, ctx):
-        em = discord.Embed(title="Highlight Help", description="Everything about highlight bot", color=discord.Colour.blurple())
-        for command in self.bot.commands:
-            if not command.hidden:
-                em.add_field(name=command.name, value=command.description or "No description", inline=False)
+    @commands.command(name="help", description="Help for highlight bot", usage="<command>")
+    async def help(self, ctx, command=None):
+        if not command:
+            em = discord.Embed(title="Highlight Help", description="Everything about highlight bot", color=discord.Colour.blurple())
+            for x in self.bot.commands:
+                if not x.hidden:
+                    em.add_field(name=x.name, value=x.description or "No description", inline=False)
+            em.set_footer(text=f"Use '@{self.bot.user} help [command]' for more info on a command")
+        
+        else:
+            x = self.bot.get_command(name=command)
+            if not x or x.hidden:
+                return await ctx.send("❌ Command not found")
 
+            em = discord.Embed(title=f"{x.name} {x.usage or ''}", description=f"{x.description or 'No description'}", color=discord.Colour.blurple())
+            em.add_field(name="Aliases", value=", ".join(x.aliases) or "No aliases")
         await ctx.send(embed=em)
+
+    @commands.command(name="invite", description="Get a invite link to add me to your server")
+    async def invite(self, ctx):
+        perms = discord.Permissions.none()
+        perms.manage_messages = True
+        await ctx.send(f"<{discord.utils.oauth_url(self.bot.user.id, permissions=perms)}>")
 
     @commands.Cog.listener("on_command_error")
     async def on_command_error(self, ctx, e):
