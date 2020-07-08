@@ -23,31 +23,49 @@ class Highlight(commands.Cog):
                 pass
 
             else:
-                blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", str(message.author.id))
+                self.bot.loop.create_task(self.send_highlight(message, rows))
 
-                for row in rows:
-                    is_blocked = False
-                    for block in blocks:
-                        if block[0] == row[0]:
-                            is_blocked = True
-                            break
+    async def send_highlight(self, message, rows):
+        blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", str(message.author.id))
 
-                    if not is_blocked:
-                        user = message.guild.get_member(int(row[0]))
-                        if user != message.author:
-                            em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
-                            em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-                            em.description += "\n\n".join([f"> {x.author} at {x.created_at.strftime('%H:%M:%S UTC')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
+        for row in rows:
+            is_blocked = False
+            for block in blocks:
+                if block[0] == row[0]:
+                    is_blocked = True
+                    break
 
-                            span = re.search(row[2], message.content).span()
+            if not is_blocked:
+                user = message.guild.get_member(int(row[0]))
+                if user != message.author:
+                    em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
+                    em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
+                    em.description += "\n\n".join([f"> {x.author} at {x.created_at.strftime('%H:%M:%S UTC')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
 
-                            msg = message.content[:span[0]]
-                            msg += f"**{row[2]}**"
-                            msg += message.content[span[1]:]
-                            em.description += f"\n\n> {message.author} at {message.created_at.strftime('%H:%M:%S UTC')}: {msg}"
-                            link = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
-                            em.add_field(name="Jump", value=f"[Click]({link})")
-                            await user.send(embed=em)
+                    span = re.search(row[2], message.content).span()
+
+                    msg = message.content[:span[0]]
+                    msg += f"**{row[2]}**"
+                    msg += message.content[span[1]:]
+                    em.description += f"\n\n> {message.author} at {message.created_at.strftime('%H:%M:%S UTC')}: {msg}"
+                    
+                    def check(ms):
+                        return ms.channel.id == message.channel.id
+                    
+                    try:
+                        ms = await self.bot.wait_for("message", check=check, timeout=10)
+                        if ms.author.id == user.id:
+                            return
+                        
+                        em.description += f"\n\n> {ms.author} at {ms.created_at.strftime('%H:%M:%S UTC')}: {ms.content}"
+
+                    except asyncio.TimeoutError:
+                        pass
+
+                    link = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
+                    em.add_field(name="Jump", value=f"[Click]({link})")
+                    await user.send(embed=em)
+
         
     @commands.guild_only()
     @commands.command(name="add", description="Adds a word (words guild specific)", usage="[word]")
