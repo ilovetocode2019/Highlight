@@ -78,13 +78,15 @@ class Highlight(commands.Cog):
         word = word.lower()
 
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM words WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3", str(ctx.author.id), str(ctx.guild.id), word))[0][0]:
-            return await ctx.send("❌ You already have that word", delete_after=10)
+            await ctx.send("❌ You already have that word", delete_after=10)
 
             await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+            return
 
         await self.bot.db.execute("INSERT INTO words (userid, guildid, word) VALUES ($1, $2, $3)", str(ctx.author.id), str(ctx.guild.id), word)
 
@@ -118,13 +120,15 @@ class Highlight(commands.Cog):
         rows = await self.bot.db.fetch("SELECT word FROM words WHERE words.userid=$1 AND words.guildid=$2", str(ctx.author.id), str(ctx.guild.id))
 
         if len(rows) == 0:
-            return await ctx.send("❌ No words for this guild", delete_after=15)
+            await ctx.send("❌ No words for this guild", delete_after=15)
 
             await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+            return
 
         em = discord.Embed()
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
@@ -144,13 +148,15 @@ class Highlight(commands.Cog):
     @commands.command(name="block", description="Block a user from highlighting you (globally)", usage="[user]")
     async def block(self, ctx, *, user: discord.Member):
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", str(ctx.author.id), str(user.id)))[0][0] != 0:
-            return await ctx.send("❌ This user is already blocked", delete_after=10)
+            await ctx.send("❌ This user is already blocked", delete_after=10)
 
             await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+            return
 
         await self.bot.db.execute("INSERT INTO blocks (userid, blockedid) VALUES ($1, $2)", str(ctx.author.id), str(user.id))
 
@@ -165,13 +171,15 @@ class Highlight(commands.Cog):
     @commands.command(name="unblock", description="Unblock a user from highlighting you (globally)")
     async def unblock(self, ctx, *, user: discord.Member):
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", str(ctx.author.id), str(user.id)))[0][0] == 0:
-            return await ctx.send("❌ This user is not blocked", delete_after=10)
+            await ctx.send("❌ This user is not blocked", delete_after=10)
 
             await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+            return
 
         await self.bot.db.execute("DELETE FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", str(ctx.author.id), str(user.id))
 
@@ -188,13 +196,15 @@ class Highlight(commands.Cog):
         rows = await self.bot.db.fetch("SELECT * FROM blocks WHERE blocks.userid=$1", str(ctx.author.id))
 
         if len(rows) == 0:
-            return await ctx.send("❌ You have no blocked users", delete_after=10)
+            await ctx.send("❌ You have no blocked users", delete_after=10)
 
             await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+            return
 
         em = discord.Embed()
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
@@ -217,13 +227,15 @@ class Highlight(commands.Cog):
         row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
 
         if not row:
-            return await ctx.send("❌ Already enabled", delete_after=10)
+            await ctx.send("❌ Already enabled", delete_after=10)
 
             await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+            return
 
         else:
             if not row[1]:
@@ -255,13 +267,15 @@ class Highlight(commands.Cog):
         
         else:
             if row[1]:
-                return await ctx.send("❌ Already disabled", delete_after=10)
+                await ctx.send("❌ Already disabled", delete_after=10)
 
                 await asyncio.sleep(10)
                 try:
                     await ctx.message.delete()
                 except:
                     pass
+
+                return
             
             else:
                 await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, str(ctx.author.id))
@@ -296,13 +310,15 @@ class Highlight(commands.Cog):
         settings = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
         
         if not settings:
-            return await ctx.send("You have default settings")
+            await ctx.send("You have default settings")
 
             await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
                 pass
+
+            return
 
         em = discord.Embed()
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
