@@ -18,11 +18,6 @@ class Highlight(commands.Cog):
         for word in self.bot.cached_words:
             if word in message.content.lower():
                 rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, str(message.guild.id))
-        
-            if not rows or len(rows) == 0:
-                pass
-
-            else:
                 self.bot.loop.create_task(self.send_highlight(message, rows))
 
     async def send_highlight(self, message, rows):
