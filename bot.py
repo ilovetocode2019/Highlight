@@ -57,6 +57,14 @@ class HighlightBot(commands.Bot):
            )
         ''')
 
+        await self.db.execute('''
+            CREATE TABLE IF NOT EXISTS settings(
+                userid text,
+                disabled bool,
+                timezone int
+            )
+        ''')
+
         self.cached_words = []
         for row in await self.db.fetch("SELECT word FROM words"):
             if row[0] not in self.cached_words:

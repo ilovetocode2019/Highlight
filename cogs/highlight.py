@@ -35,19 +35,29 @@ class Highlight(commands.Cog):
                     is_blocked = True
                     break
 
-            if not is_blocked:
-                user = message.guild.get_member(int(row[0]))
+            user = message.guild.get_member(int(row[0]))
+            settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(user.id))
+
+            if not settings_row:
+                settings_row = [str(user.id), False, 0]
+
+            if not is_blocked and not settings_row[1]:
                 if user != message.author:
+
+                    utc = ""
+                    if settings_row[2] == 0:
+                        utc = " UTC"
+                    
                     em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
                     em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-                    em.description += "\n\n".join([f"> {x.author} at {x.created_at.strftime('%H:%M:%S UTC')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
+                    em.description += "\n\n".join([f"> {x.author} at {(x.created_at-datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
 
                     span = re.search(row[2], message.content).span()
 
                     msg = message.content[:span[0]]
                     msg += f"**{row[2]}**"
                     msg += message.content[span[1]:]
-                    em.description += f"\n\n> {message.author} at {message.created_at.strftime('%H:%M:%S UTC')}: {msg}"
+                    em.description += f"\n\n> {message.author} at {(message.created_at-datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
                     
                     def check(ms):
                         return ms.channel.id == message.channel.id
@@ -200,6 +210,114 @@ class Highlight(commands.Cog):
             em.description += f"\n{user.name}"
 
         await ctx.send(embed=em, delete_after=15)
+
+        await asyncio.sleep(10)
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
+    @commands.command(name="enable", description="Enable highlight")
+    async def enable(self, ctx):
+        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
+
+        if not row:
+            return await ctx.send("❌ Already enabled", delete_after=10)
+
+            await asyncio.sleep(10)
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
+        else:
+            if not row[1]:
+                return await ctx.send("❌ Already enabled", delete_after=10)
+
+                await asyncio.sleep(10)
+                try:
+                    await ctx.message.delete()
+                except:
+                    pass
+            
+            else:
+                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, str(ctx.author.id))
+
+        await ctx.send("✅ Highlight has been enabled", delete_after=10)
+
+        await asyncio.sleep(10)
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
+    @commands.command(name="disable", description="Disable highlight")
+    async def disable(self, ctx):
+        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
+
+        if not row:
+            await self.bot.db.execute("INSERT INTO settings (userid, disabled) VALUES ($1, $2, $3)", str(ctx.author.id), True, 0)
+        
+        else:
+            if row[1]:
+                return await ctx.send("❌ Already disabled", delete_after=10)
+
+                await asyncio.sleep(10)
+                try:
+                    await ctx.message.delete()
+                except:
+                    pass
+            
+            else:
+                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, str(ctx.author.id))
+
+        await ctx.send("✅ Highlight has been disabled", delete_after=10)
+
+        await asyncio.sleep(10)
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
+    @commands.command(name="timezone", description="Set your timezone", usage="[timezone]")
+    async def timezone(self, ctx, timezone: int):
+        if (await self.bot.db.fetch("SELECT COUNT(*) FROM settings WHERE settings.userid=$1", str(ctx.author.id)))[0][0] == 0:
+            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", str(ctx.author.id), False, timezone)
+        
+        else:
+            await self.bot.db.execute("UPDATE settings SET timezone=$1 WHERE settings.userid=$2", timezone, str(ctx.author.id))
+
+        await ctx.send("✅ Timezone saved", delete_after=10)
+
+        await asyncio.sleep(10)
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
+    @commands.command(name="info", description="Display info about your settings")
+    async def info(self, ctx):
+
+        settings = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
+        
+        if not settings:
+            return await ctx.send("You have default settings")
+
+            await asyncio.sleep(10)
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
+        em = discord.Embed()
+        em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+        
+        if settings[1]:
+            em.description = "Highlight is currently disabled"
+
+        em.add_field(name="Timezone", value=settings[2])
+
+        await ctx.send(embed=em)
 
         await asyncio.sleep(10)
         try:
