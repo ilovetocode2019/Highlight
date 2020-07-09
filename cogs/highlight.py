@@ -256,7 +256,7 @@ class Highlight(commands.Cog):
         row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
 
         if not row:
-            await self.bot.db.execute("INSERT INTO settings (userid, disabled) VALUES ($1, $2, $3)", str(ctx.author.id), True, 0)
+            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", str(ctx.author.id), True, 0)
         
         else:
             if row[1]:
