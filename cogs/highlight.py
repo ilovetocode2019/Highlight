@@ -46,14 +46,14 @@ class Highlight(commands.Cog):
                     
                     em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
                     em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-                    em.description += "\n\n".join([f"> {x.author} at {(x.created_at-datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
+                    em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
 
                     span = re.search(row[2], message.content).span()
 
                     msg = message.content[:span[0]]
                     msg += f"**{row[2]}**"
                     msg += message.content[span[1]:]
-                    em.description += f"\n\n> {message.author} at {(message.created_at-datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
+                    em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
                     
                     def check(ms):
                         return ms.channel.id == message.channel.id
