@@ -17,8 +17,8 @@ class Events(commands.Cog):
         await asyncio.sleep(wait)
         
         if row[2] == "enable":
-            await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, row[0])
             await self.bot.db.execute("DELETE FROM todo WHERE todo.userid=$1 AND Todo.event=$2", row[0], "enable")
+            await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, row[0])
 
     @tasks.loop(minutes=1)
     async def events_loop(self):

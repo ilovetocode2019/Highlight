@@ -270,6 +270,8 @@ class Highlight(commands.Cog):
 
         await ctx.send("✅ Highlight has been enabled", delete_after=10)
 
+        await self.bot.db.execute("DELETE FROM todo WHERE todo.userid=$1 AND todo.event=$2", str(ctx.author.id), "enable")
+
         await asyncio.sleep(10)
         try:
             await ctx.message.delete()
@@ -361,7 +363,7 @@ class Highlight(commands.Cog):
 
         em.add_field(name="Timezone", value=settings[2])
 
-        await ctx.send(embed=em)
+        await ctx.send(embed=em, delete_after=15)
 
         await asyncio.sleep(10)
         try:
