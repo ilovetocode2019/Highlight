@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 import datetime
+import dateparser
 import asyncio
 import re
 
@@ -71,7 +72,24 @@ class Highlight(commands.Cog):
                     em.add_field(name="Jump", value=f"[Click]({link})")
                     await user.send(embed=em)
 
+    def parse_time(self, time):
+        if not time:
+            return time
+
+        if not time.startswith("at") and not time.startswith("in"):
+            time = f"in {time}"
+        failed = False
+        try:
+            time = dateparser.parse(time, settings={'TIMEZONE': 'UTC'})
+        except:
+            failed = True
         
+        if not failed and time:
+            time = time.replace(tzinfo=datetime.timezone.utc).timestamp()
+
+        return time
+
+
     @commands.guild_only()
     @commands.command(name="add", description="Adds a word (words guild specific)", usage="[word]")
     async def add(self, ctx, *, word):
@@ -258,8 +276,20 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="disable", description="Disable highlight")
-    async def disable(self, ctx):
+    @commands.command(name="disable", description="Disable highlight", aliases=["dnd"])
+    async def disable(self, ctx, *, time=None):
+        parsed_time = self.parse_time(time)
+        if time and not parsed_time:
+            await ctx.send("❌ I couldn't parse your time, sorry", delete_after=10)
+
+            await asyncio.sleep(10)
+            try:
+                await ctx.message.delete()
+            except:
+                pass
+
+            return
+
         row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
 
         if not row:
@@ -279,14 +309,17 @@ class Highlight(commands.Cog):
             
             else:
                 await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, str(ctx.author.id))
-
+        
         await ctx.send("✅ Highlight has been disabled", delete_after=10)
+
+        if parsed_time:
+            await self.bot.db.execute("INSERT into todo (userid, time, event) VALUES ($1, $2, $3)", str(ctx.author.id), parsed_time, "enable")
 
         await asyncio.sleep(10)
         try:
             await ctx.message.delete()
         except:
-            pass
+            pass        
 
     @commands.command(name="timezone", description="Set your timezone", usage="[timezone]")
     async def timezone(self, ctx, timezone: int):

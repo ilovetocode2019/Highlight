@@ -25,7 +25,7 @@ class HighlightBot(commands.Bot):
         with open("config.json", "r") as f:
             self.config = json.load(f)
         
-        self.cogs_to_add = ["cogs.highlight", "cogs.meta"]
+        self.cogs_to_add = ["cogs.meta", "cogs.highlight", "cogs.events"]
 
         self.loop.create_task(self.load_cogs())
         self.loop.create_task(self.prepare_bot())
@@ -62,6 +62,14 @@ class HighlightBot(commands.Bot):
                 userid text,
                 disabled bool,
                 timezone int
+            )
+        ''')
+
+        await self.db.execute('''
+            CREATE TABLE IF NOT EXISTS todo(
+                userid text,
+                time int,
+                event text
             )
         ''')
 
