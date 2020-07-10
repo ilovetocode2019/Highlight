@@ -17,7 +17,7 @@ class Highlight(commands.Cog):
 
         rows = None
         for word in self.bot.cached_words:
-            if word in message.content.lower():
+            if self.word_in_message(word, message.content.lower()):
                 rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, str(message.guild.id))
                 self.bot.loop.create_task(self.send_highlight(message, rows))
 
@@ -37,7 +37,7 @@ class Highlight(commands.Cog):
             if not settings_row:
                 settings_row = [str(user.id), False, 0]
 
-            if not is_blocked and not settings_row[1]:
+            if not is_blocked and not settings_row[1] and user.id in [member.id for member in message.channel.members]:
                 if user != message.author:
 
                     utc = ""
@@ -71,6 +71,36 @@ class Highlight(commands.Cog):
                     link = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
                     em.add_field(name="Jump", value=f"[Click]({link})")
                     await user.send(embed=em)
+    
+    def word_in_message(self, word, message):
+        match = re.search(word, message)
+
+        if not match:
+            return False
+        
+        span = match.span()
+        
+        start = span[0]-1
+        end = span[1]
+
+        if start >= 0:
+            if message[start] != " ":
+                return False
+
+        if end < len(message):
+            if message[end] != " " and message[end] not in [",", ".", "'"]:
+                return False
+
+            elif message[end] == "'":
+                if end+1 < len(message):
+                    if message[end+1] != "s":
+                        return False
+
+                    elif end+2 < len(message):
+                        if message[end+2] != " ":
+                            return False
+
+        return True
 
     def parse_time(self, time):
         if not time:
