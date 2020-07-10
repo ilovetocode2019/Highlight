@@ -117,10 +117,22 @@ class Highlight(commands.Cog):
                     #If the word does not end with 's or s', return False
                     if message[end:end+2] not in ["'s", "s'"]:
                         return False
-                if end+2 < len(message):
-                    #If after the word no space is found, return False
-                    if message[end+2] != " ":
+
+                    if end+2 < len(message):
+                        #If after the word no space is found, return False
+                        if message[end+2] != " ":
+                            return False
+
+                elif end < len(message):
+                    #If the word does not end with s or ', return False
+                    if message[end:end+1] not in ["s", "'"]:
                         return False
+                    
+                    if end+1 < len(message):
+                        #If after the word no space is found, return False
+                        if message[end+1] != " ":
+                            return False
+            
                     
 
         #If nothing returned False, then this is a word in the message, so return False
