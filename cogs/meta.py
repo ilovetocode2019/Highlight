@@ -11,7 +11,7 @@ class Meta(commands.Cog):
     @commands.command(name="help", description="Help for highlight bot", usage="<command>")
     async def help(self, ctx, command=None):
         if not command:
-            em = discord.Embed(title="Highlight Help", description="Everything about highlight bot", color=discord.Colour.blurple())
+            em = discord.Embed(title="Highlight Help", description="I DM you if I see one of your words in the chat. I ignore the message if you reply.", color=discord.Colour.blurple())
             for x in self.bot.commands:
                 if not x.hidden:
                     em.add_field(name=x.name, value=x.description or "No description", inline=False)
