@@ -107,21 +107,21 @@ class Highlight(commands.Cog):
                 return False
 
         if end < len(message):
-            #If the charecter after the word is not a space, comma, period, or apostrophe, return False
-            if message[end] != " " and message[end] not in [",", ".", "'"]:
+            #If the charecter after the word is not a space, comma, period, apostrophe, or s,  return False
+            if message[end] not in [" ", ",", ".", "'", "s", "+", "-", "/", "-", "!", "?"]:
                 return False
-
-            elif message[end] == "'":
-                #If the end of the message is an apostrophe, check if it's correct grammer
+            
+            #If ' or s after word, check to see if it's valid apostrophe grammer
+            elif message[end] in ["'", "s"]:
                 if end+1 < len(message):
-                    #If the letter after the apostrophe is not s, return False
-                    if message[end+1] != "s":
+                    #If the word does not end with 's or s', return False
+                    if message[end:end+2] not in ["'s", "s'"]:
+                        return False
+                if end+2 < len(message):
+                    #If after the word no space is found, return False
+                    if message[end+2] != " ":
                         return False
                     
-                    #If the apostrophe grammer is correct but, the charecter after the word is not a space, return False
-                    elif end+2 < len(message):
-                        if message[end+2] != " ":
-                            return False
 
         #If nothing returned False, then this is a word in the message, so return False
         return True
