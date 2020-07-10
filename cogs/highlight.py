@@ -15,13 +15,14 @@ class Highlight(commands.Cog):
         if message.author.bot:
             return
 
-        rows = None
+        #Loop through the trigger words and run send_highlight if the tigger word is in the message
         for word in self.bot.cached_words:
             if self.word_in_message(word, message.content.lower()):
                 rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, str(message.guild.id))
                 self.bot.loop.create_task(self.send_highlight(message, rows))
 
     async def send_highlight(self, message, rows):
+        #Select all the users who have blocked the message sender
         blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", str(message.author.id))
 
         for row in rows:
@@ -32,74 +33,97 @@ class Highlight(commands.Cog):
                     break
 
             user = message.guild.get_member(int(row[0]))
+
+            #Get the settings for the user
             settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(user.id))
 
             if not settings_row:
                 settings_row = [str(user.id), False, 0]
+            
+            #Make sure the user is not blocked
+            #Make sure the user has not disabled highlight
+            #Make sure the user to be highlighted can view the channel
+            #Make sure the user to be highlighted is not the sender
+            if not is_blocked and not settings_row[1] and user.id in [member.id for member in message.channel.members] and user != message.author:
 
-            if not is_blocked and not settings_row[1] and user.id in [member.id for member in message.channel.members]:
-                if user != message.author:
+                utc = ""
+                if settings_row[2] == 0:
+                    utc = " UTC"
+                
+                #Create the embed for the highlight
+                em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
+                em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
+                em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
+                
+                #Get the position of the word in the message
+                span = re.search(row[2], message.content).span()
 
-                    utc = ""
-                    if settings_row[2] == 0:
-                        utc = " UTC"
+                msg = message.content[:span[0]]
+                msg += f"**{row[2]}**"
+                msg += message.content[span[1]:]
+
+                #Add the trigger message to the embed
+                em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
+                
+                def check(ms):
+                    return ms.channel.id == message.channel.id
+                
+                try:
+                    #Wait for 10 seconds to see if any new messages should be added to the embed
+                    ms = await self.bot.wait_for("message", check=check, timeout=10)
+
+                    #To not trigger the highlight if the user replys to the tigger message
+                    if ms.author.id == user.id:
+                        return
                     
-                    em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
-                    em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-                    em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
+                    #Add the new message to the embed
+                    em.description += f"\n\n> {ms.author} at {ms.created_at.strftime('%H:%M:%S UTC')}: {ms.content}"
 
-                    span = re.search(row[2], message.content).span()
+                except asyncio.TimeoutError:
+                    pass
+                
+                link = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
+                em.add_field(name="Jump", value=f"[Click]({link})")
 
-                    msg = message.content[:span[0]]
-                    msg += f"**{row[2]}**"
-                    msg += message.content[span[1]:]
-                    em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
-                    
-                    def check(ms):
-                        return ms.channel.id == message.channel.id
-                    
-                    try:
-                        ms = await self.bot.wait_for("message", check=check, timeout=10)
-                        if ms.author.id == user.id:
-                            return
-                        
-                        em.description += f"\n\n> {ms.author} at {ms.created_at.strftime('%H:%M:%S UTC')}: {ms.content}"
-
-                    except asyncio.TimeoutError:
-                        pass
-
-                    link = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
-                    em.add_field(name="Jump", value=f"[Click]({link})")
-                    await user.send(embed=em)
+                #Send the message
+                await user.send(embed=em)
     
     def word_in_message(self, word, message):
+        #Get the word in the message
         match = re.search(word, message)
-
+        
+        #Return False if the word is not in the message
         if not match:
             return False
         
         span = match.span()
-        
+
         start = span[0]-1
         end = span[1]
-
+        
         if start >= 0:
+            #If the charecter before the word is not a space, return False
             if message[start] != " ":
                 return False
 
         if end < len(message):
+            #If the charecter after the word is not a space, comma, period, or apostrophe, return False
             if message[end] != " " and message[end] not in [",", ".", "'"]:
                 return False
 
             elif message[end] == "'":
+                #If the end of the message is an apostrophe, check if it's correct grammer
                 if end+1 < len(message):
+                    #If the letter after the apostrophe is not s, return False
                     if message[end+1] != "s":
                         return False
-
+                    
+                    #If the apostrophe grammer is correct but, the charecter after the word is not a space, return False
                     elif end+2 < len(message):
                         if message[end+2] != " ":
                             return False
 
+        #If nothing returned False, then this is a word in the message, so return False
         return True
 
     def parse_time(self, time):
