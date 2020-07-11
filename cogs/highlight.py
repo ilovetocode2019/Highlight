@@ -82,8 +82,7 @@ class Highlight(commands.Cog):
                 except asyncio.TimeoutError:
                     pass
                 
-                link = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
-                em.add_field(name="Jump", value=f"[Click]({link})")
+                em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
                 #Send the message
                 await user.send(embed=em)
