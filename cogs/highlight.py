@@ -56,7 +56,7 @@ class Highlight(commands.Cog):
                 em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
                 
                 #Get the position of the word in the message
-                span = re.search(row[2], message.content).span()
+                span = re.search(row[2], message.content.lower()).span()
 
                 msg = message.content[:span[0]]
                 msg += f"**{row[2]}**"
@@ -105,36 +105,6 @@ class Highlight(commands.Cog):
             if message[start] != " ":
                 return False
 
-        if end < len(message):
-            #If the charecter after the word is not a space, comma, period, apostrophe, or s,  return False
-            if message[end] not in [" ", ",", ".", "'", "s", "+", "-", "/", "-", "!", "?"]:
-                return False
-            
-            #If ' or s after word, check to see if it's valid apostrophe grammer
-            elif message[end] in ["'", "s"]:
-                if end+1 < len(message):
-                    #If the word does not end with 's or s', return False
-                    if message[end:end+2] not in ["'s", "s'"]:
-                        return False
-
-                    if end+2 < len(message):
-                        #If after the word no space is found, return False
-                        if message[end+2] != " ":
-                            return False
-
-                elif end < len(message):
-                    #If the word does not end with s or ', return False
-                    if message[end:end+1] not in ["s", "'"]:
-                        return False
-                    
-                    if end+1 < len(message):
-                        #If after the word no space is found, return False
-                        if message[end+1] != " ":
-                            return False
-            
-                    
-
-        #If nothing returned False, then this is a word in the message, so return False
         return True
 
     def parse_time(self, time):
