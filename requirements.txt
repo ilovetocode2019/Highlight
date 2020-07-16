@@ -2,3 +2,4 @@ discord.py
 asyncpg
 jishaku
 dateparser
+git+https://github.com/ilovetocode2019/Debug-Cog
