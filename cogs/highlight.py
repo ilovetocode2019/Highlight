@@ -18,12 +18,12 @@ class Highlight(commands.Cog):
         #Loop through the trigger words and run send_highlight if the tigger word is in the message
         for word in self.bot.cached_words:
             if self.word_in_message(word, message.content.lower()):
-                rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, str(message.guild.id))
+                rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, message.guild.id)
                 self.bot.loop.create_task(self.send_highlight(message, rows))
 
     async def send_highlight(self, message, rows):
         #Select all the users who have blocked the message sender
-        blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", str(message.author.id))
+        blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", message.author.id)
 
         for row in rows:
             is_blocked = False
@@ -35,7 +35,7 @@ class Highlight(commands.Cog):
             user = message.guild.get_member(int(row[0]))
 
             #Get the settings for the user
-            settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(user.id))
+            settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", user.id)
 
             if not settings_row:
                 settings_row = [str(user.id), False, 0]
@@ -130,7 +130,7 @@ class Highlight(commands.Cog):
     async def add(self, ctx, *, word):
         word = word.lower()
 
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM words WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3", str(ctx.author.id), str(ctx.guild.id), word))[0][0]:
+        if (await self.bot.db.fetch("SELECT COUNT(*) FROM words WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3", ctx.author.id, ctx.guild.id, word))[0][0]:
             await ctx.send("❌ You already have that word", delete_after=10)
 
             await asyncio.sleep(10)
@@ -141,7 +141,7 @@ class Highlight(commands.Cog):
 
             return
 
-        await self.bot.db.execute("INSERT INTO words (userid, guildid, word) VALUES ($1, $2, $3)", str(ctx.author.id), str(ctx.guild.id), word)
+        await self.bot.db.execute("INSERT INTO words (userid, guildid, word) VALUES ($1, $2, $3)", ctx.author.id, ctx.guild.id, word)
 
         if word not in self.bot.cached_words:
             self.bot.cached_words.append(word)
@@ -157,7 +157,7 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     @commands.command(name="remove", description="Removes a word (words guild specific)", usage="[word]")
     async def remove(self, ctx, *, word):
-        await self.bot.db.execute("DELETE FROM words WHERE words.word=$1 AND words.userid=$2 AND words.guildid=$3", word, str(ctx.author.id), str(ctx.guild.id))
+        await self.bot.db.execute("DELETE FROM words WHERE words.word=$1 AND words.userid=$2 AND words.guildid=$3", word, ctx.author.id, ctx.guild.id)
 
         await ctx.send("✅ Words updated", delete_after=10)
 
@@ -170,7 +170,7 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     @commands.command(name="show", description="Show your words for the guild")
     async def show(self, ctx):
-        rows = await self.bot.db.fetch("SELECT word FROM words WHERE words.userid=$1 AND words.guildid=$2", str(ctx.author.id), str(ctx.guild.id))
+        rows = await self.bot.db.fetch("SELECT word FROM words WHERE words.userid=$1 AND words.guildid=$2", ctx.author.id, ctx.guild.id)
 
         if len(rows) == 0:
             await ctx.send("❌ No words for this guild", delete_after=15)
@@ -200,7 +200,7 @@ class Highlight(commands.Cog):
 
     @commands.command(name="block", description="Block a user from highlighting you (globally)", usage="[user]")
     async def block(self, ctx, *, user: discord.Member):
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", str(ctx.author.id), str(user.id)))[0][0] != 0:
+        if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id))[0][0] != 0:
             await ctx.send("❌ This user is already blocked", delete_after=10)
 
             await asyncio.sleep(10)
@@ -211,7 +211,7 @@ class Highlight(commands.Cog):
 
             return
 
-        await self.bot.db.execute("INSERT INTO blocks (userid, blockedid) VALUES ($1, $2)", str(ctx.author.id), str(user.id))
+        await self.bot.db.execute("INSERT INTO blocks (userid, blockedid) VALUES ($1, $2)", ctx.author.id, user.id)
 
         await ctx.send(f"🚫 Blocked {user.display_name}", delete_after=10)
 
@@ -223,7 +223,7 @@ class Highlight(commands.Cog):
     
     @commands.command(name="unblock", description="Unblock a user from highlighting you (globally)")
     async def unblock(self, ctx, *, user: discord.Member):
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", str(ctx.author.id), str(user.id)))[0][0] == 0:
+        if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id))[0][0] == 0:
             await ctx.send("❌ This user is not blocked", delete_after=10)
 
             await asyncio.sleep(10)
@@ -234,7 +234,7 @@ class Highlight(commands.Cog):
 
             return
 
-        await self.bot.db.execute("DELETE FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", str(ctx.author.id), str(user.id))
+        await self.bot.db.execute("DELETE FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id)
 
         await ctx.send(f"✅ Unblocked {user.display_name}", delete_after=10)  
 
@@ -246,7 +246,7 @@ class Highlight(commands.Cog):
     
     @commands.command(name="blocked", description="Shows your blocked list")
     async def blocked(self, ctx):
-        rows = await self.bot.db.fetch("SELECT * FROM blocks WHERE blocks.userid=$1", str(ctx.author.id))
+        rows = await self.bot.db.fetch("SELECT * FROM blocks WHERE blocks.userid=$1", ctx.author.id)
 
         if len(rows) == 0:
             await ctx.send("❌ You have no blocked users", delete_after=10)
@@ -277,7 +277,7 @@ class Highlight(commands.Cog):
 
     @commands.command(name="enable", description="Enable highlight")
     async def enable(self, ctx):
-        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
+        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", ctx.author.id)
 
         if not row:
             await ctx.send("❌ Already enabled", delete_after=10)
@@ -301,11 +301,11 @@ class Highlight(commands.Cog):
                     pass
             
             else:
-                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, str(ctx.author.id))
+                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, ctx.author.id)
 
         await ctx.send("✅ Highlight has been enabled", delete_after=10)
 
-        await self.bot.db.execute("DELETE FROM todo WHERE todo.userid=$1 AND todo.event=$2", str(ctx.author.id), "enable")
+        await self.bot.db.execute("DELETE FROM todo WHERE todo.userid=$1 AND todo.event=$2", ctx.author.id, "enable")
 
         await asyncio.sleep(10)
         try:
@@ -327,10 +327,10 @@ class Highlight(commands.Cog):
 
             return
 
-        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
+        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", ctx.author.id)
 
         if not row:
-            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", str(ctx.author.id), True, 0)
+            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", ctx.author.id, True, 0)
         
         else:
             if row[1]:
@@ -345,12 +345,12 @@ class Highlight(commands.Cog):
                 return
             
             else:
-                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, str(ctx.author.id))
+                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, ctx.author.id)
         
         await ctx.send("✅ Highlight has been disabled", delete_after=10)
 
         if parsed_time:
-            await self.bot.db.execute("INSERT into todo (userid, time, event) VALUES ($1, $2, $3)", str(ctx.author.id), parsed_time, "enable")
+            await self.bot.db.execute("INSERT into todo (userid, time, event) VALUES ($1, $2, $3)", ctx.author.id, parsed_time, "enable")
 
         await asyncio.sleep(10)
         try:
@@ -360,11 +360,11 @@ class Highlight(commands.Cog):
 
     @commands.command(name="timezone", description="Set your timezone", usage="[timezone]")
     async def timezone(self, ctx, timezone: int):
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM settings WHERE settings.userid=$1", str(ctx.author.id)))[0][0] == 0:
-            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", str(ctx.author.id), False, timezone)
+        if (await self.bot.db.fetch("SELECT COUNT(*) FROM settings WHERE settings.userid=$1", ctx.author.id))[0][0] == 0:
+            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", ctx.author.id, False, timezone)
         
         else:
-            await self.bot.db.execute("UPDATE settings SET timezone=$1 WHERE settings.userid=$2", timezone, str(ctx.author.id))
+            await self.bot.db.execute("UPDATE settings SET timezone=$1 WHERE settings.userid=$2", timezone, ctx.author.id)
 
         await ctx.send("✅ Timezone saved", delete_after=10)
 
@@ -377,7 +377,7 @@ class Highlight(commands.Cog):
     @commands.command(name="info", description="Display info about your settings")
     async def info(self, ctx):
 
-        settings = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", str(ctx.author.id))
+        settings = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", ctx.author.id)
         
         if not settings:
             await ctx.send("You have default settings")

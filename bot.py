@@ -44,22 +44,22 @@ class HighlightBot(commands.Bot):
         
         await self.db.execute('''
             CREATE TABLE IF NOT EXISTS words(
-                userid text,
-                guildid text,
+                userid bigint,
+                guildid bigint,
                 word text
             )
         ''')
 
         await self.db.execute('''
            CREATE TABLE IF NOT EXISTS blocks(
-               userid text,
-               blockedid text
+               userid bigint,
+               blockedid bigint
            )
         ''')
 
         await self.db.execute('''
             CREATE TABLE IF NOT EXISTS settings(
-                userid text,
+                userid bigint,
                 disabled bool,
                 timezone int
             )
@@ -67,7 +67,7 @@ class HighlightBot(commands.Bot):
 
         await self.db.execute('''
             CREATE TABLE IF NOT EXISTS todo(
-                userid text,
+                userid bigint,
                 time int,
                 event text
             )
