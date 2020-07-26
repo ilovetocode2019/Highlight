@@ -292,13 +292,15 @@ class Highlight(commands.Cog):
 
         else:
             if not row[1]:
-                return await ctx.send("❌ Already enabled", delete_after=10)
+                await ctx.send("❌ Already enabled", delete_after=10)
 
                 await asyncio.sleep(10)
                 try:
                     await ctx.message.delete()
                 except:
                     pass
+            
+                return
             
             else:
                 await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, ctx.author.id)
