@@ -53,14 +53,14 @@ class Highlight(commands.Cog):
                 #Create the embed for the highlight
                 em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
                 em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-                em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in await message.channel.history(limit=3).flatten()])
+                em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
                 
                 #Get the position of the word in the message
                 span = re.search(row[2], message.content.lower()).span()
 
-                msg = message.content[:span[0]]
-                msg += f"**{row[2]}**"
-                msg += message.content[span[1]:]
+                msg = discord.utils.escape_markdown(message.content[:span[0]])
+                msg += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
+                msg += discord.utils.escape_markdown(message.content[span[1]:])
 
                 #Add the trigger message to the embed
                 em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
