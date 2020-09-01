@@ -16,7 +16,7 @@ class Meta(commands.Cog):
                 if not x.hidden:
                     em.add_field(name=x.name, value=x.description or "No description", inline=False)
             em.set_footer(text=f"Use '@{self.bot.user} help [command]' for more info on a command")
-        
+
         else:
             x = self.bot.get_command(name=command)
             if not x or x.hidden:
@@ -37,7 +37,7 @@ class Meta(commands.Cog):
         error = "".join(traceback.format_exception(type(e), e, e.__traceback__, 1))
         print("Ignoring exception in command {}:".format(ctx.command), file=sys.stderr)
         traceback.print_exception(type(e), e, e.__traceback__, file=sys.stderr)
-        
+
         if isinstance(e, discord.ext.commands.errors.CheckFailure):
             return
         elif isinstance(e, discord.ext.commands.errors.MissingRequiredArgument):
@@ -48,7 +48,7 @@ class Meta(commands.Cog):
             return await ctx.send(f"You are on cooldown. Try again in {e.retry_after} seconds")
         elif isinstance(e, discord.ext.commands.errors.CommandNotFound):
             return
-        
+
         em = discord.Embed(title=":warning: Error :warning:", description=f"```{str(e)}```")
 
         await ctx.send(embed=em)

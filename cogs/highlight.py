@@ -15,14 +15,14 @@ class Highlight(commands.Cog):
         if message.author.bot:
             return
 
-        #Loop through the trigger words and run send_highlight if the tigger word is in the message
+        # Loop through the trigger words and run send_highlight if the tigger word is in the message
         for word in self.bot.cached_words:
             if self.word_in_message(word, message.content.lower()):
                 rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, message.guild.id)
                 self.bot.loop.create_task(self.send_highlight(message, rows))
 
     async def send_highlight(self, message, rows):
-        #Select all the users who have blocked the message sender
+        # Select all the users who have blocked the message sender
         blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", message.author.id)
 
         for row in rows:
@@ -34,74 +34,74 @@ class Highlight(commands.Cog):
 
             user = message.guild.get_member(int(row[0]))
 
-            #Get the settings for the user
+            # Get the settings for the user
             settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", user.id)
 
             if not settings_row:
                 settings_row = [str(user.id), False, 0]
-            
-            #Make sure the user is not blocked
-            #Make sure the user has not disabled highlight
-            #Make sure the user to be highlighted can view the channel
-            #Make sure the user to be highlighted is not the sender
+
+            # Make sure the user is not blocked
+            # Make sure the user has not disabled highlight
+            # Make sure the user to be highlighted can view the channel
+            # Make sure the user to be highlighted is not the sender
             if not is_blocked and not settings_row[1] and user.id in [member.id for member in message.channel.members] and user != message.author:
 
                 utc = ""
                 if settings_row[2] == 0:
                     utc = " UTC"
-                
-                #Create the embed for the highlight
+
+                # Create the embed for the highlight
                 em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
                 em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
                 em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
-                
-                #Get the position of the word in the message
+
+                # Get the position of the word in the message
                 span = re.search(row[2], message.content.lower()).span()
 
                 msg = discord.utils.escape_markdown(message.content[:span[0]])
                 msg += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
                 msg += discord.utils.escape_markdown(message.content[span[1]:])
 
-                #Add the trigger message to the embed
+                # Add the trigger message to the embed
                 em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
-                
+
                 def check(ms):
                     return ms.channel.id == message.channel.id
-                
+
                 try:
-                    #Wait for 10 seconds to see if any new messages should be added to the embed
+                    # Wait for 10 seconds to see if any new messages should be added to the embed
                     ms = await self.bot.wait_for("message", check=check, timeout=10)
 
-                    #To not trigger the highlight if the user replys to the tigger message
+                    # To not trigger the highlight if the user replys to the tigger message
                     if ms.author.id == user.id:
                         return
-                    
-                    #Add the new message to the embed
+
+                    # Add the new message to the embed
                     em.description += f"\n\n> {ms.author} at {ms.created_at.strftime('%H:%M:%S UTC')}: {ms.content}"
 
                 except asyncio.TimeoutError:
                     pass
-                
+
                 em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
-                #Send the message
+                # Send the message
                 await user.send(embed=em)
-    
+
     def word_in_message(self, word, message):
-        #Get the word in the message
+        # Get the word in the message
         match = re.search(word, message)
-        
-        #Return False if the word is not in the message
+
+        # Return False if the word is not in the message
         if not match:
             return False
-        
+
         span = match.span()
 
         start = span[0]-1
         end = span[1]
-        
+
         if start >= 0:
-            #If the charecter before the word is not a space, return False
+            # If the charecter before the word is not a space, return False
             if message[start] != " ":
                 return False
 
@@ -118,7 +118,7 @@ class Highlight(commands.Cog):
             time = dateparser.parse(time, settings={'TIMEZONE': 'UTC'})
         except:
             failed = True
-        
+
         if not failed and time:
             time = time.replace(tzinfo=datetime.timezone.utc).timestamp()
 
@@ -153,7 +153,7 @@ class Highlight(commands.Cog):
            await ctx.message.delete()
         except:
             pass
-    
+
     @commands.guild_only()
     @commands.command(name="remove", description="Removes a word (words guild specific)", usage="[word]")
     async def remove(self, ctx, *, word):
@@ -185,7 +185,7 @@ class Highlight(commands.Cog):
 
         em = discord.Embed()
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
-        
+
         em.description = ""
         for row in rows:
             em.description += f"\n{row[0]}"
@@ -243,7 +243,7 @@ class Highlight(commands.Cog):
             await ctx.message.delete()
         except:
             pass
-    
+
     @commands.command(name="blocked", description="Shows your blocked list")
     async def blocked(self, ctx):
         rows = await self.bot.db.fetch("SELECT * FROM blocks WHERE blocks.userid=$1", ctx.author.id)
@@ -299,9 +299,9 @@ class Highlight(commands.Cog):
                     await ctx.message.delete()
                 except:
                     pass
-            
+
                 return
-            
+
             else:
                 await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, ctx.author.id)
 
@@ -333,7 +333,7 @@ class Highlight(commands.Cog):
 
         if not row:
             await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", ctx.author.id, True, 0)
-        
+
         else:
             if row[1]:
                 await ctx.send("❌ Already disabled", delete_after=10)
@@ -345,10 +345,10 @@ class Highlight(commands.Cog):
                     pass
 
                 return
-            
+
             else:
                 await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, ctx.author.id)
-        
+
         await ctx.send("✅ Highlight has been disabled", delete_after=10)
 
         if parsed_time:
@@ -358,13 +358,13 @@ class Highlight(commands.Cog):
         try:
             await ctx.message.delete()
         except:
-            pass        
+            pass
 
     @commands.command(name="timezone", description="Set your timezone", usage="[timezone]")
     async def timezone(self, ctx, timezone: int):
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM settings WHERE settings.userid=$1", ctx.author.id))[0][0] == 0:
             await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", ctx.author.id, False, timezone)
-        
+
         else:
             await self.bot.db.execute("UPDATE settings SET timezone=$1 WHERE settings.userid=$2", timezone, ctx.author.id)
 
@@ -380,7 +380,7 @@ class Highlight(commands.Cog):
     async def info(self, ctx):
 
         settings = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", ctx.author.id)
-        
+
         if not settings:
             await ctx.send("You have default settings")
 
@@ -394,7 +394,7 @@ class Highlight(commands.Cog):
 
         em = discord.Embed()
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
-        
+
         if settings[1]:
             em.description = "Highlight is currently disabled"
 
