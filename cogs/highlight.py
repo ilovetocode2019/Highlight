@@ -77,7 +77,7 @@ class Highlight(commands.Cog):
                         return
 
                     # Add the new message to the embed
-                    em.description += f"\n\n> {ms.author} at {ms.created_at.strftime('%H:%M:%S UTC')}: {ms.content}"
+                    em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {ms.content}"
 
                 except asyncio.TimeoutError:
                     pass
