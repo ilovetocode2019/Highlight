@@ -19,73 +19,72 @@ class Highlight(commands.Cog):
         for word in self.bot.cached_words:
             if self.word_in_message(word, message.content.lower()):
                 rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, message.guild.id)
-                self.bot.loop.create_task(self.send_highlight(message, rows))
 
-    async def send_highlight(self, message, rows):
+                blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", message.author.id)
+                for row in rows:
+                    is_blocked = False
+                    for block in blocks:
+                        if block[0] == row[0]:
+                            is_blocked = True
+                    if not is_blocked:
+                        self.bot.loop.create_task(self.send_highlight(message, row))
+
+    async def send_highlight(self, message, row):
         # Select all the users who have blocked the message sender
-        blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", message.author.id)
+        user = message.guild.get_member(int(row[0]))
 
-        for row in rows:
-            is_blocked = False
-            for block in blocks:
-                if block[0] == row[0]:
-                    is_blocked = True
-                    break
+        # Get the settings for the user
+        settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", user.id)
 
-            user = message.guild.get_member(int(row[0]))
+        if not settings_row:
+            settings_row = [str(user.id), False, 0]
 
-            # Get the settings for the user
-            settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", user.id)
+        # Make sure the user is not blocked
+        # Make sure the user has not disabled highlight
+        # Make sure the user to be highlighted can view the channel
+        # Make sure the user to be highlighted is not the sender
+        if not settings_row[1] and user.id in [member.id for member in message.channel.members] and user != message.author:
 
-            if not settings_row:
-                settings_row = [str(user.id), False, 0]
+            utc = ""
+            if settings_row[2] == 0:
+                utc = " UTC"
 
-            # Make sure the user is not blocked
-            # Make sure the user has not disabled highlight
-            # Make sure the user to be highlighted can view the channel
-            # Make sure the user to be highlighted is not the sender
-            if not is_blocked and not settings_row[1] and user.id in [member.id for member in message.channel.members] and user != message.author:
+            # Create the embed for the highlight
+            em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
+            em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
+            em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
 
-                utc = ""
-                if settings_row[2] == 0:
-                    utc = " UTC"
+            # Get the position of the word in the message
+            span = re.search(row[2], message.content.lower()).span()
 
-                # Create the embed for the highlight
-                em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
-                em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-                em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
+            msg = discord.utils.escape_markdown(message.content[:span[0]])
+            msg += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
+            msg += discord.utils.escape_markdown(message.content[span[1]:])
 
-                # Get the position of the word in the message
-                span = re.search(row[2], message.content.lower()).span()
+            # Add the trigger message to the embed
+            em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
 
-                msg = discord.utils.escape_markdown(message.content[:span[0]])
-                msg += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
-                msg += discord.utils.escape_markdown(message.content[span[1]:])
+            def check(ms):
+                return ms.channel.id == message.channel.id
 
-                # Add the trigger message to the embed
-                em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
+            try:
+                # Wait for 10 seconds to see if any new messages should be added to the embed
+                ms = await self.bot.wait_for("message", check=check, timeout=10)
 
-                def check(ms):
-                    return ms.channel.id == message.channel.id
+                # To not trigger the highlight if the user replys to the tigger message
+                if ms.author.id == user.id:
+                    return
 
-                try:
-                    # Wait for 10 seconds to see if any new messages should be added to the embed
-                    ms = await self.bot.wait_for("message", check=check, timeout=10)
+                # Add the new message to the embed
+                em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {ms.content}"
 
-                    # To not trigger the highlight if the user replys to the tigger message
-                    if ms.author.id == user.id:
-                        return
+            except asyncio.TimeoutError:
+                pass
 
-                    # Add the new message to the embed
-                    em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {ms.content}"
+            em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
-                except asyncio.TimeoutError:
-                    pass
-
-                em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
-
-                # Send the message
-                await user.send(embed=em)
+            # Send the message
+            await user.send(embed=em)
 
     def word_in_message(self, word, message):
         # Get the word in the message
