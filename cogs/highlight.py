@@ -16,6 +16,7 @@ class Highlight(commands.Cog):
             return
 
         # Loop through the trigger words and run send_highlight if the tigger word is in the message
+        sent = []
         for word in self.bot.cached_words:
             if self.word_in_message(word, message.content.lower()):
                 rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, message.guild.id)
@@ -26,8 +27,9 @@ class Highlight(commands.Cog):
                     for block in blocks:
                         if block[0] == row[0]:
                             is_blocked = True
-                    if not is_blocked:
+                    if not is_blocked and row[0] not in sent:
                         self.bot.loop.create_task(self.send_highlight(message, row))
+                        sent.append(row[0])
 
     async def send_highlight(self, message, row):
         # Select all the users who have blocked the message sender
