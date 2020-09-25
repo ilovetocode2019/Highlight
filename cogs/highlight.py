@@ -131,8 +131,6 @@ class Highlight(commands.Cog):
 
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM words WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3", ctx.author.id, ctx.guild.id, word))[0][0]:
             await ctx.send("❌ You already have that word", delete_after=10)
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
@@ -146,8 +144,6 @@ class Highlight(commands.Cog):
             self.bot.cached_words.append(word)
         
         await ctx.send("✅ Words updated", delete_after=10)
-
-        await asyncio.sleep(10)
         try:
            await ctx.message.delete()
         except:
@@ -156,11 +152,17 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     @commands.command(name="remove", description="Removes a word (words guild specific)", usage="[word]")
     async def remove(self, ctx, *, word):
-        await self.bot.db.execute("DELETE FROM words WHERE words.word=$1 AND words.userid=$2 AND words.guildid=$3", word, ctx.author.id, ctx.guild.id)
+        result = await self.bot.db.execute("DELETE FROM words WHERE words.word=$1 AND words.userid=$2 AND words.guildid=$3", word, ctx.author.id, ctx.guild.id)
+
+        if result == "DELETE 0":
+            await ctx.send("❌ This word is not registered", delete_after=10)
+            try:
+                await ctx.message.delete()
+            except discord.HTTPException:
+                pass
+            return
 
         await ctx.send("✅ Words updated", delete_after=10)
-
-        await asyncio.sleep(10)
         try:
            await ctx.message.delete()
         except:
@@ -173,8 +175,6 @@ class Highlight(commands.Cog):
 
         if len(rows) == 0:
             await ctx.send("❌ No words for this guild", delete_after=15)
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
@@ -190,8 +190,6 @@ class Highlight(commands.Cog):
             em.description += f"\n{row[0]}"
 
         await ctx.send(embed=em, delete_after=15)
-
-        await asyncio.sleep(10)
         try:
            await ctx.message.delete()
         except:
@@ -201,31 +199,24 @@ class Highlight(commands.Cog):
     async def block(self, ctx, *, user: discord.Member):
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id))[0][0] != 0:
             await ctx.send("❌ This user is already blocked", delete_after=10)
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
-            except:
+            except discord.HTTPException:
                 pass
-
-            return
 
         await self.bot.db.execute("INSERT INTO blocks (userid, blockedid) VALUES ($1, $2)", ctx.author.id, user.id)
 
         await ctx.send(f"🚫 Blocked {user.display_name}", delete_after=10)
-
-        await asyncio.sleep(10)
         try:
-           await ctx.message.delete()
-        except:
+            await ctx.message.delete()
+        except discord.HTTPException:
             pass
+
     
     @commands.command(name="unblock", description="Unblock a user from highlighting you (globally)")
     async def unblock(self, ctx, *, user: discord.Member):
         if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id))[0][0] == 0:
             await ctx.send("❌ This user is not blocked", delete_after=10)
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
@@ -236,8 +227,6 @@ class Highlight(commands.Cog):
         await self.bot.db.execute("DELETE FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id)
 
         await ctx.send(f"✅ Unblocked {user.display_name}", delete_after=10)  
-
-        await asyncio.sleep(10)
         try:
             await ctx.message.delete()
         except:
@@ -249,8 +238,6 @@ class Highlight(commands.Cog):
 
         if len(rows) == 0:
             await ctx.send("❌ You have no blocked users", delete_after=10)
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
@@ -267,8 +254,6 @@ class Highlight(commands.Cog):
             em.description += f"\n{user.name}"
 
         await ctx.send(embed=em, delete_after=15)
-
-        await asyncio.sleep(10)
         try:
             await ctx.message.delete()
         except:
@@ -280,8 +265,6 @@ class Highlight(commands.Cog):
 
         if not row:
             await ctx.send("❌ Already enabled", delete_after=10)
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
@@ -292,8 +275,6 @@ class Highlight(commands.Cog):
         else:
             if not row[1]:
                 await ctx.send("❌ Already enabled", delete_after=10)
-
-                await asyncio.sleep(10)
                 try:
                     await ctx.message.delete()
                 except:
@@ -307,8 +288,6 @@ class Highlight(commands.Cog):
         await ctx.send("✅ Highlight has been enabled", delete_after=10)
 
         await self.bot.db.execute("DELETE FROM todo WHERE todo.userid=$1 AND todo.event=$2", ctx.author.id, "enable")
-
-        await asyncio.sleep(10)
         try:
             await ctx.message.delete()
         except:
@@ -319,8 +298,6 @@ class Highlight(commands.Cog):
         parsed_time = self.parse_time(time)
         if time and not parsed_time:
             await ctx.send("❌ I couldn't parse your time, sorry", delete_after=10)
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
@@ -336,8 +313,6 @@ class Highlight(commands.Cog):
         else:
             if row[1]:
                 await ctx.send("❌ Already disabled", delete_after=10)
-
-                await asyncio.sleep(10)
                 try:
                     await ctx.message.delete()
                 except:
@@ -352,8 +327,6 @@ class Highlight(commands.Cog):
 
         if parsed_time:
             await self.bot.db.execute("INSERT into todo (userid, time, event) VALUES ($1, $2, $3)", ctx.author.id, parsed_time, "enable")
-
-        await asyncio.sleep(10)
         try:
             await ctx.message.delete()
         except:
@@ -368,8 +341,6 @@ class Highlight(commands.Cog):
             await self.bot.db.execute("UPDATE settings SET timezone=$1 WHERE settings.userid=$2", timezone, ctx.author.id)
 
         await ctx.send("✅ Timezone saved", delete_after=10)
-
-        await asyncio.sleep(10)
         try:
             await ctx.message.delete()
         except:
@@ -382,8 +353,6 @@ class Highlight(commands.Cog):
 
         if not settings:
             await ctx.send("You have default settings")
-
-            await asyncio.sleep(10)
             try:
                 await ctx.message.delete()
             except:
@@ -400,8 +369,6 @@ class Highlight(commands.Cog):
         em.add_field(name="Timezone", value=settings[2])
 
         await ctx.send(embed=em, delete_after=15)
-
-        await asyncio.sleep(10)
         try:
             await ctx.message.delete()
         except:
