@@ -3,6 +3,7 @@ from discord.ext import commands
 
 import datetime
 import dateparser
+import humanize
 import asyncio
 import re
 
@@ -325,10 +326,12 @@ class Highlight(commands.Cog):
             else:
                 await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, ctx.author.id)
 
-        await ctx.send("✅ Highlight has been disabled", delete_after=10)
-
         if parsed_time:
             await self.bot.db.execute("INSERT into todo (userid, time, event) VALUES ($1, $2, $3)", ctx.author.id, parsed_time, "enable")
+
+        time = f" for {humanize.naturaldelta(datetime.datetime.fromtimestamp(parsed_time))}" if parsed_time else ""
+        await ctx.send(f"✅ Highlight has been disabled{time}", delete_after=10)
+
         try:
             await ctx.message.delete()
         except:
