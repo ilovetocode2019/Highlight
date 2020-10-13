@@ -172,6 +172,17 @@ class Highlight(commands.Cog):
             pass
 
     @commands.guild_only()
+    @commands.command(name="clear", description="Clear your highlight list")
+    async def clear(self, ctx):
+        await self.bot.db.execute("DELETE FROM words WHERE words.userid=$1 AND words.guildid=$2;", ctx.author.id, ctx.guild.id)
+
+        await ctx.send("✅ Your highlight list has been cleared", delete_after=5)
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
+    @commands.guild_only()
     @commands.command(name="show", description="Show your words for the guild")
     async def show(self, ctx):
         rows = await self.bot.db.fetch("SELECT word FROM words WHERE words.userid=$1 AND words.guildid=$2", ctx.author.id, ctx.guild.id)
