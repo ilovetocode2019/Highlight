@@ -1,6 +1,6 @@
 discord.py
+jishaku
 asyncpg
 jishaku
 dateparser
 humanize
-git+https://github.com/ilovetocode2019/Debug-Cog

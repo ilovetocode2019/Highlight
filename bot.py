@@ -4,6 +4,7 @@ from discord.ext import commands
 import json
 import asyncpg
 import logging
+import datetime
 
 logger = logging.getLogger("discord")
 logger.setLevel(logging.INFO)
@@ -33,8 +34,8 @@ class HighlightBot(commands.Bot):
     async def load_cogs(self):
         bot.remove_command("help")
 
-        self.load_extension("debug_cog")
-        self.get_command("debug").hidden = True
+        self.load_extension("jishaku")
+        self.get_command("jishaku")
 
         for cog in self.cogs_to_add:
             self.load_extension(cog)
