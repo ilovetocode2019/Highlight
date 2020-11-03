@@ -21,7 +21,9 @@ def get_prefix(client, msg):
 
 class HighlightBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix=get_prefix, intents=discord.Intents.all())
+        intents = discord.Intents.all()
+        intents.presences = False
+        super().__init__(command_prefix=get_prefix, intents=intents)
 
         with open("config.json", "r") as f:
             self.config = json.load(f)
