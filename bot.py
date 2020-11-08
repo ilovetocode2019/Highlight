@@ -29,6 +29,7 @@ class HighlightBot(commands.Bot):
             self.config = json.load(f)
         
         self.cogs_to_add = ["cogs.meta", "cogs.highlight", "cogs.events"]
+        self.startup_time = datetime.datetime.utcnow()
 
         self.loop.create_task(self.load_cogs())
         self.loop.create_task(self.prepare_bot())
