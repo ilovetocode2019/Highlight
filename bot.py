@@ -5,6 +5,7 @@ import json
 import asyncpg
 import logging
 import datetime
+import aiohttp
 
 logger = logging.getLogger("discord")
 logger.setLevel(logging.INFO)
@@ -28,7 +29,7 @@ class HighlightBot(commands.Bot):
         with open("config.json", "r") as f:
             self.config = json.load(f)
         
-        self.cogs_to_add = ["cogs.meta", "cogs.highlight", "cogs.events"]
+        self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight", "cogs.events"]
         self.startup_time = datetime.datetime.utcnow()
 
         self.loop.create_task(self.load_cogs())
@@ -45,6 +46,7 @@ class HighlightBot(commands.Bot):
 
     async def prepare_bot(self):
         self.db = await asyncpg.create_pool(self.config["sql"])
+        self.session = aiohttp.ClientSession()
         
         await self.db.execute('''
             CREATE TABLE IF NOT EXISTS words(
@@ -84,6 +86,8 @@ class HighlightBot(commands.Bot):
         
     async def on_ready(self):
         logging.info(f"Logged in as {self.user.name} - {self.user.id}")
+        self.console = self.get_channel(self.config["console"])
+
     def run(self):
         super().run(self.config["token"])
         

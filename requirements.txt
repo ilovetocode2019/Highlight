@@ -1,6 +1,5 @@
 discord.py
 jishaku
 asyncpg
-jishaku
 dateparser
 humanize
