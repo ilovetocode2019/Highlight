@@ -47,7 +47,7 @@ class Admin(commands.Cog):
     def cog_check(self, ctx):
         return ctx.author.id == self.bot.owner_id
 
-    @commands.command(name="sql", description="Run some sql", hidden=True)
+    @commands.command(name="sql", description="Run some sql")
     async def sql(self, ctx, *, code: codeblock_converter):
         _, query = code
 
@@ -79,7 +79,7 @@ class Admin(commands.Cog):
         except discord.HTTPException:
             await ctx.send(file=discord.File(io.BytesIO(str(results).encode("utf-8")), filename="result.txt"))
 
-    @commands.command(name="update", description="Update the bot", hidden=True)
+    @commands.command(name="update", description="Update the bot")
     async def update(self, ctx):
         await ctx.trigger_typing()
 
@@ -114,7 +114,7 @@ class Admin(commands.Cog):
 
         await ctx.send(text)
 
-    @commands.command(name="logout", description="Logout the bot", hidden=True)
+    @commands.command(name="logout", description="Logout the bot")
     @commands.is_owner()
     async def logout(self, ctx):
         await ctx.send(":wave: Logging out")
