@@ -365,7 +365,7 @@ class Highlight(commands.Cog):
             pass
 
     @blocked.command(name="clear", description="Clear your blocked list")
-    async def clear(self, ctx):
+    async def blocked_clear(self, ctx):
         result = await Confirm("Are you sure you want to do this? I will forget all your blocked users and channels").prompt(ctx)
         if result:
             query = """UPDATE settings
