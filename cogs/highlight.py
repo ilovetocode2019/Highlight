@@ -152,7 +152,7 @@ class Highlight(commands.Cog):
             await ctx.send("❌ You already have that word", delete_after=10)
             try:
                 await ctx.message.delete()
-            except:
+            except discord.HTTPException:
                 pass
 
             return
@@ -168,7 +168,7 @@ class Highlight(commands.Cog):
         await ctx.send("✅ Words updated", delete_after=10)
         try:
            await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.guild_only()
@@ -190,7 +190,7 @@ class Highlight(commands.Cog):
         await ctx.send("✅ Words updated", delete_after=10)
         try:
            await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.guild_only()
@@ -204,7 +204,7 @@ class Highlight(commands.Cog):
         await ctx.send("✅ Your highlight list has been cleared", delete_after=5)
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.guild_only()
@@ -235,7 +235,7 @@ class Highlight(commands.Cog):
 
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.guild_only()
@@ -250,7 +250,7 @@ class Highlight(commands.Cog):
             await ctx.send("❌ No words for this guild", delete_after=15)
             try:
                 await ctx.message.delete()
-            except:
+            except discord.HTTPException:
                 pass
 
             return
@@ -265,7 +265,7 @@ class Highlight(commands.Cog):
         await ctx.send(embed=em, delete_after=15)
         try:
            await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.command(name="block", description="Block a user or channel", usage="<user or channel>", aliases=["ignore", "mute"])
@@ -358,7 +358,7 @@ class Highlight(commands.Cog):
 
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.group(name="blocked", description="View your blocked list", invoke_without_command=True)
@@ -373,7 +373,7 @@ class Highlight(commands.Cog):
             await ctx.send("❌ You have no channnels or users blocked", delete_after=10)
             try:
                 await ctx.message.delete()
-            except:
+            except discord.HTTPException:
                 pass
 
             return
@@ -392,7 +392,7 @@ class Highlight(commands.Cog):
         await ctx.send(embed=em, delete_after=15)
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @blocked.command(name="clear", description="Clear your blocked list")
@@ -425,7 +425,7 @@ class Highlight(commands.Cog):
 
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.command(name="disable", description="Disable highlight", aliases=["dnd"])
@@ -441,7 +441,7 @@ class Highlight(commands.Cog):
 
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.command(name="timezone", description="Set your timezone")
@@ -456,7 +456,7 @@ class Highlight(commands.Cog):
         await ctx.send("✅ Timezone saved", delete_after=10)
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.command(name="settings", description="Display your settings")
@@ -471,7 +471,7 @@ class Highlight(commands.Cog):
             await ctx.send("You have default settings")
             try:
                 await ctx.message.delete()
-            except:
+            except discord.HTTPException:
                 pass
 
             return
@@ -487,7 +487,7 @@ class Highlight(commands.Cog):
         await ctx.send(embed=em, delete_after=15)
         try:
             await ctx.message.delete()
-        except:
+        except discord.HTTPException:
             pass
 
     @commands.command(name="forget", description="Delete all your information")
