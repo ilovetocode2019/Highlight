@@ -1,10 +1,33 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, menus
 
 import datetime
 import asyncio
 import re
 import typing
+
+class Confirm(menus.Menu):
+    def __init__(self, msg):
+        super().__init__(timeout=30.0, delete_message_after=True)
+        self.msg = msg
+        self.result = None
+
+    async def send_initial_message(self, ctx, channel):
+        return await channel.send(self.msg)
+
+    @menus.button('\N{WHITE HEAVY CHECK MARK}')
+    async def do_confirm(self, payload):
+        self.result = True
+        self.stop()
+
+    @menus.button('\N{CROSS MARK}')
+    async def do_deny(self, payload):
+        self.result = False
+        self.stop()
+
+    async def prompt(self, ctx):
+        await self.start(ctx, wait=True)
+        return self.result
 
 class Highlight(commands.Cog):
     def __init__(self, bot):
@@ -417,6 +440,27 @@ class Highlight(commands.Cog):
         try:
             await ctx.message.delete()
         except:
+            pass
+
+    @commands.command(name="forget", description="Delete all your information")
+    async def forget(self, ctx):
+        result = await Confirm("Are you sure you want to do this? I will forget your words, blocked list, and configuration").prompt(ctx)
+        if result:
+            query = """DELETE FROM words
+                       WHERE words.userid=$1;
+                    """
+            await self.bot.db.execute(query, ctx.author.id)
+
+            quey = """DELETE FROM settings
+                      WHERE settings.userid=$1;
+                    """
+            await self.bot.db.execute(query, ctx.author.id)
+
+            await ctx.send("✅ Successfully deleted your information", delete_after=10)
+
+        try:
+            await ctx.message.delete()
+        except discord.HTTPException:
             pass
 
 def setup(bot):
