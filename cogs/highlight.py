@@ -383,11 +383,13 @@ class Highlight(commands.Cog):
 
         em.description = ""
         for user in settings["blocked_users"]:
-            user = self.bot.get_user(user) or None
-            em.description += f"\nUser: {user}"
+            user = self.bot.get_user(user)
+            if user:
+                em.description += f"\nUser: {user}"
         for channel in settings["blocked_channels"]:
-            channel = self.bot.get_channel(channel) or None
-            em.description += f"\nChannel: {channel}"
+            channel = self.bot.get_channel(channel)
+            if channel:
+                em.description += f"\nChannel: {channel}"
 
         await ctx.send(embed=em, delete_after=15)
         try:
@@ -468,23 +470,18 @@ class Highlight(commands.Cog):
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
         if not settings:
-            await ctx.send("You have default settings")
-            try:
-                await ctx.message.delete()
-            except discord.HTTPException:
-                pass
+            await ctx.send("You have default settings", delete_after=15)
+        else:
+            em = discord.Embed()
+            em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
-            return
+            if settings["disabled"]:
+                em.description = "Highlight is currently disabled"
 
-        em = discord.Embed()
-        em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+            em.add_field(name="Timezone", value=settings["timezone"])
 
-        if settings["disabled"]:
-            em.description = "Highlight is currently disabled"
+            await ctx.send(embed=em, delete_after=15)
 
-        em.add_field(name="Timezone", value=settings["timezone"])
-
-        await ctx.send(embed=em, delete_after=15)
         try:
             await ctx.message.delete()
         except discord.HTTPException:
