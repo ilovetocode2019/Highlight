@@ -83,7 +83,7 @@ class Highlight(commands.Cog):
             utc = " UTC"
 
         # Create the embed for the highlight
-        em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
+        em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n", color=discord.Color.blurple())
         em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
         em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
 
@@ -240,7 +240,7 @@ class Highlight(commands.Cog):
         if not rows:
             await ctx.send("❌ No words for this server", delete_after=15)
         else:
-            em = discord.Embed()
+            em = discord.Embed(color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
             em.description = ""
@@ -358,7 +358,7 @@ class Highlight(commands.Cog):
         if not settings or (not settings["blocked_channels"] and not settings["blocked_users"]):
             await ctx.send("❌ You have no channnels or users blocked", delete_after=10)
         else:
-            em = discord.Embed()
+            em = discord.Embed(color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
             users = []
@@ -456,7 +456,7 @@ class Highlight(commands.Cog):
         if not settings:
             await ctx.send("You have default settings", delete_after=15)
         else:
-            em = discord.Embed()
+            em = discord.Embed(color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
             if settings["disabled"]:
