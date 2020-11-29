@@ -3,3 +3,4 @@ jishaku
 asyncpg
 dateparser
 humanize
+git+https://github.com/Rapptz/discord-ext-menus
