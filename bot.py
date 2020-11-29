@@ -29,7 +29,7 @@ class HighlightBot(commands.Bot):
         with open("config.json", "r") as f:
             self.config = json.load(f)
         
-        self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight", "cogs.events"]
+        self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight"]
         self.startup_time = datetime.datetime.utcnow()
 
         self.loop.create_task(self.load_cogs())
@@ -47,43 +47,31 @@ class HighlightBot(commands.Bot):
     async def prepare_bot(self):
         self.db = await asyncpg.create_pool(self.config["sql"])
         self.session = aiohttp.ClientSession()
-        
-        await self.db.execute('''
-            CREATE TABLE IF NOT EXISTS words(
-                userid bigint,
-                guildid bigint,
-                word text
-            )
-        ''')
 
-        await self.db.execute('''
-           CREATE TABLE IF NOT EXISTS blocks(
-               userid bigint,
-               blockedid bigint
-           )
-        ''')
+        query = """CREATE TABLE IF NOT EXISTS words (
+                   userid BIGINT,
+                   guildid BIGINT,
+                   word TEXT
+                   );
 
-        await self.db.execute('''
-            CREATE TABLE IF NOT EXISTS settings(
-                userid bigint,
-                disabled bool,
-                timezone int
-            )
-        ''')
+                   CREATE TABLE IF NOT EXISTS settings (
+                   userid BIGINT PRIMARY KEY,
+                   disabled BOOL,
+                   timezone INT
+                   );
 
-        await self.db.execute('''
-            CREATE TABLE IF NOT EXISTS todo(
-                userid bigint,
-                time int,
-                event text
-            )
-        ''')
+                   CREATE TABLE IF NOT EXISTS blocks (
+                   userid BIGINT,
+                   blockedid bigint
+                   );
+                """
+        await self.db.execute(query)
 
         self.cached_words = []
         for row in await self.db.fetch("SELECT word FROM words"):
             if row[0] not in self.cached_words:
                 self.cached_words.append(row[0])
-        
+
     async def on_ready(self):
         logging.info(f"Logged in as {self.user.name} - {self.user.id}")
         self.console = self.get_channel(self.config["console"])

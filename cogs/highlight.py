@@ -109,30 +109,16 @@ class Highlight(commands.Cog):
 
         return True
 
-    def parse_time(self, time):
-        if not time:
-            return time
-
-        if not time.startswith("at") and not time.startswith("in"):
-            time = f"in {time}"
-        failed = False
-        try:
-            time = dateparser.parse(time, settings={'TIMEZONE': 'UTC'})
-        except:
-            failed = True
-
-        if not failed and time:
-            time = time.replace(tzinfo=datetime.timezone.utc).timestamp()
-
-        return time
-
-
     @commands.guild_only()
-    @commands.command(name="add", description="Adds a word (words guild specific)", usage="[word]")
+    @commands.command(name="add", description="Adds a word (words guild specific)")
     async def add(self, ctx, *, word):
         word = word.lower()
 
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM words WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3", ctx.author.id, ctx.guild.id, word))[0][0]:
+        query = """SELECT COUNT(*)
+                   FROM words
+                   WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
+                """
+        if (await self.bot.db.fetchrow(query, ctx.author.id, ctx.guild.id, word))["count"]:
             await ctx.send("❌ You already have that word", delete_after=10)
             try:
                 await ctx.message.delete()
@@ -141,7 +127,10 @@ class Highlight(commands.Cog):
 
             return
 
-        await self.bot.db.execute("INSERT INTO words (userid, guildid, word) VALUES ($1, $2, $3)", ctx.author.id, ctx.guild.id, word)
+        query = """INSERT INTO words (userid, guildid, word)
+                   VALUES ($1, $2, $3);
+                """
+        await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
         if word not in self.bot.cached_words:
             self.bot.cached_words.append(word)
@@ -153,9 +142,12 @@ class Highlight(commands.Cog):
             pass
 
     @commands.guild_only()
-    @commands.command(name="remove", description="Removes a word (words guild specific)", usage="[word]")
+    @commands.command(name="remove", description="Removes a word (words guild specific)")
     async def remove(self, ctx, *, word):
-        result = await self.bot.db.execute("DELETE FROM words WHERE words.word=$1 AND words.userid=$2 AND words.guildid=$3", word, ctx.author.id, ctx.guild.id)
+        query = """DELETE FROM words
+                   WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
+                """
+        result = await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
         if result == "DELETE 0":
             await ctx.send("❌ This word is not registered", delete_after=10)
@@ -174,7 +166,10 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     @commands.command(name="clear", description="Clear your highlight list")
     async def clear(self, ctx):
-        await self.bot.db.execute("DELETE FROM words WHERE words.userid=$1 AND words.guildid=$2;", ctx.author.id, ctx.guild.id)
+        query = """DELETE FROM words
+                   WHERE words.userid=$1 AND words.guildid=$2;
+                """
+        await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
 
         await ctx.send("✅ Your highlight list has been cleared", delete_after=5)
         try:
@@ -185,9 +180,12 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     @commands.command(name="show", description="Show your words for the guild")
     async def show(self, ctx):
-        rows = await self.bot.db.fetch("SELECT word FROM words WHERE words.userid=$1 AND words.guildid=$2", ctx.author.id, ctx.guild.id)
+        query = """SELECT * FROM words
+                   WHERE words.userid=$1 AND words.guildid=$2;
+                """
+        rows = await self.bot.db.fetch(query, ctx.author.id, ctx.guild.id)
 
-        if len(rows) == 0:
+        if not rows:
             await ctx.send("❌ No words for this guild", delete_after=15)
             try:
                 await ctx.message.delete()
@@ -201,7 +199,7 @@ class Highlight(commands.Cog):
 
         em.description = ""
         for row in rows:
-            em.description += f"\n{row[0]}"
+            em.description += f"\n{row['word']}"
 
         await ctx.send(embed=em, delete_after=15)
         try:
@@ -209,16 +207,27 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="block", description="Block a user from highlighting you (globally)", usage="[user]")
+    @commands.command(name="block", description="Block a user from highlighting you (globally)")
     async def block(self, ctx, *, user: discord.Member):
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id))[0][0] != 0:
+        query = """SELECT COUNT(*)
+                   FROM blocks
+                   WHERE blocks.userid=$1
+                   AND blocks.blockedid=$2;
+                """
+        if (await self.bot.db.fetchrow(query, ctx.author.id, user.id))["count"] != 0:
             await ctx.send("❌ This user is already blocked", delete_after=10)
+
             try:
                 await ctx.message.delete()
             except discord.HTTPException:
                 pass
 
-        await self.bot.db.execute("INSERT INTO blocks (userid, blockedid) VALUES ($1, $2)", ctx.author.id, user.id)
+            return
+
+        query = """INSERT INTO blocks (userid, blockedid)
+                   VALUES ($1, $2);
+                """
+        await self.bot.db.execute(query, ctx.author.id, user.id)
 
         await ctx.send(f"🚫 Blocked {user.display_name}", delete_after=10)
         try:
@@ -226,10 +235,14 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    
     @commands.command(name="unblock", description="Unblock a user from highlighting you (globally)")
     async def unblock(self, ctx, *, user: discord.Member):
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id))[0][0] == 0:
+        query = """DELETE FROM blocks
+                   WHERE blocks.userid=$1 AND blocks.blockedid=$2;
+                """
+        result = await self.bot.db.execute(query, ctx.author.id, user.id)
+
+        if result == "DELETE 0":
             await ctx.send("❌ This user is not blocked", delete_after=10)
             try:
                 await ctx.message.delete()
@@ -237,8 +250,6 @@ class Highlight(commands.Cog):
                 pass
 
             return
-
-        await self.bot.db.execute("DELETE FROM blocks WHERE blocks.userid=$1 AND blocks.blockedid=$2", ctx.author.id, user.id)
 
         await ctx.send(f"✅ Unblocked {user.display_name}", delete_after=10)  
         try:
@@ -248,9 +259,13 @@ class Highlight(commands.Cog):
 
     @commands.command(name="blocked", description="Shows your blocked list")
     async def blocked(self, ctx):
-        rows = await self.bot.db.fetch("SELECT * FROM blocks WHERE blocks.userid=$1", ctx.author.id)
+        query = """SELECT *
+                   FROM blocks
+                   WHERE blocks.userid=$1;
+                """
+        rows = await self.bot.db.fetch(query, ctx.author.id)
 
-        if len(rows) == 0:
+        if not rows:
             await ctx.send("❌ You have no blocked users", delete_after=10)
             try:
                 await ctx.message.delete()
@@ -264,7 +279,7 @@ class Highlight(commands.Cog):
 
         em.description = ""
         for row in rows:
-            user = self.bot.get_user(int(row[1]))
+            user = self.bot.get_user(int(row["blockedid"]))
             em.description += f"\n{user.name}"
 
         await ctx.send(embed=em, delete_after=15)
@@ -275,86 +290,44 @@ class Highlight(commands.Cog):
 
     @commands.command(name="enable", description="Enable highlight")
     async def enable(self, ctx):
-        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", ctx.author.id)
-
-        if not row:
-            await ctx.send("❌ Already enabled", delete_after=10)
-            try:
-                await ctx.message.delete()
-            except:
-                pass
-
-            return
-
-        else:
-            if not row[1]:
-                await ctx.send("❌ Already enabled", delete_after=10)
-                try:
-                    await ctx.message.delete()
-                except:
-                    pass
-
-                return
-
-            else:
-                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", False, ctx.author.id)
+        query = """INSERT INTO settings (userid, disabled, timezone)
+                   VALUES ($1, $2, $3)
+                   ON CONFLICT (userid)
+                   DO UPDATE SET disabled=$2;
+                """
+        await self.bot.db.execute(query, ctx.author.id, False, 0)
 
         await ctx.send("✅ Highlight has been enabled", delete_after=10)
 
-        await self.bot.db.execute("DELETE FROM todo WHERE todo.userid=$1 AND todo.event=$2", ctx.author.id, "enable")
         try:
             await ctx.message.delete()
         except:
             pass
 
     @commands.command(name="disable", description="Disable highlight", aliases=["dnd"])
-    async def disable(self, ctx, *, time=None):
-        parsed_time = self.parse_time(time)
-        if time and not parsed_time:
-            await ctx.send("❌ I couldn't parse your time, sorry", delete_after=10)
-            try:
-                await ctx.message.delete()
-            except:
-                pass
+    async def disable(self, ctx):
+        query = """INSERT INTO settings (userid, disabled, timezone)
+                   VALUES ($1, $2, $3)
+                   ON CONFLICT (userid)
+                   DO UPDATE SET disabled=$2;
+                """
+        await self.bot.db.execute(query, ctx.author.id, True, 0)
 
-            return
-
-        row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", ctx.author.id)
-
-        if not row:
-            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", ctx.author.id, True, 0)
-
-        else:
-            if row[1]:
-                await ctx.send("❌ Already disabled", delete_after=10)
-                try:
-                    await ctx.message.delete()
-                except:
-                    pass
-
-                return
-
-            else:
-                await self.bot.db.execute("UPDATE settings SET disabled=$1 WHERE settings.userid=$2", True, ctx.author.id)
-
-        if parsed_time:
-            await self.bot.db.execute("INSERT into todo (userid, time, event) VALUES ($1, $2, $3)", ctx.author.id, parsed_time, "enable")
-
-        time = f" for {humanize.naturaldelta(datetime.datetime.fromtimestamp(parsed_time))}" if parsed_time else ""
-        await ctx.send(f"✅ Highlight has been disabled{time}", delete_after=10)
+        await ctx.send(f"✅ Highlight has been disabled", delete_after=10)
 
         try:
             await ctx.message.delete()
         except:
             pass
 
-    @commands.command(name="timezone", description="Set your timezone", usage="[timezone]")
+    @commands.command(name="timezone", description="Set your timezone")
     async def timezone(self, ctx, timezone: int):
-        if (await self.bot.db.fetch("SELECT COUNT(*) FROM settings WHERE settings.userid=$1", ctx.author.id))[0][0] == 0:
-            await self.bot.db.execute("INSERT INTO settings (userid, disabled, timezone) VALUES ($1, $2, $3)", ctx.author.id, False, timezone)
-
-        else:
-            await self.bot.db.execute("UPDATE settings SET timezone=$1 WHERE settings.userid=$2", timezone, ctx.author.id)
+        query = """INSERT INTO settings (userid, disabled, timezone)
+                   VALUES ($1, $2, $3)
+                   ON CONFLICT (userid)
+                   DO UPDATE SET timezone=$3;
+                """
+        await self.bot.db.execute(query, ctx.author.id, False, timezone)
 
         await ctx.send("✅ Timezone saved", delete_after=10)
         try:
@@ -365,7 +338,11 @@ class Highlight(commands.Cog):
     @commands.command(name="info", description="Display info about your settings")
     async def info(self, ctx):
 
-        settings = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", ctx.author.id)
+        query = """SELECT *
+                   FROM settings
+                   WHERE settings.userid=$1;
+                """
+        settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
         if not settings:
             await ctx.send("You have default settings")
@@ -379,10 +356,10 @@ class Highlight(commands.Cog):
         em = discord.Embed()
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
-        if settings[1]:
+        if settings["disabled"]:
             em.description = "Highlight is currently disabled"
 
-        em.add_field(name="Timezone", value=settings[2])
+        em.add_field(name="Timezone", value=settings["timezone"])
 
         await ctx.send(embed=em, delete_after=15)
         try:
