@@ -247,7 +247,7 @@ class Highlight(commands.Cog):
         rows = await self.bot.db.fetch(query, ctx.author.id, ctx.guild.id)
 
         if not rows:
-            await ctx.send("❌ No words for this guild", delete_after=15)
+            await ctx.send("❌ No words for this server", delete_after=15)
             try:
                 await ctx.message.delete()
             except discord.HTTPException:
