@@ -208,6 +208,37 @@ class Highlight(commands.Cog):
             pass
 
     @commands.guild_only()
+    @commands.command(name="transfer", description="Transfer your words from another server", usage="<server id>", aliases=["import"])
+    async def transfer(self, ctx, guild_id: int):
+        query = """SELECT *
+                   FROM words
+                   WHERE words.userid=$1 AND (words.guildid=$2 OR words.guildid=$3);
+                """
+        words = await self.bot.db.fetch(query, ctx.author.id, guild_id, ctx.guild.id)
+
+        to_transfer = []
+        for word in words:
+            if word["guildid"] == guild_id and word["word"] not in [x["word"] for x in words if x["guildid"] == ctx.guild.id]:
+                to_transfer.append({"userid": ctx.author.id, "guildid": ctx.guild.id, "word": word["word"]})
+
+        if not to_transfer:
+            await ctx.send("❌ You have no words to transfer from this server")
+        else:
+            query = """INSERT INTO words (userid, guildid, word)
+                    SELECT x.userid, x.guildid, x.word
+                    FROM jsonb_to_recordset($1::jsonb) AS
+                    x(userid BIGINT, guildid BIGINT, word TEXT);
+                    """
+
+            await self.bot.db.execute(query, to_transfer)
+            await ctx.send("✅ Your highlight words have been transferred to this server", delete_after=5)
+
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
+    @commands.guild_only()
     @commands.command(name="show", description="View your words for the current server")
     async def show(self, ctx):
         query = """SELECT * FROM words
@@ -380,7 +411,6 @@ class Highlight(commands.Cog):
             await ctx.message.delete()
         except discord.HTTPException:
             pass
-
 
     @commands.command(name="enable", description="Enable highlight")
     async def enable(self, ctx):

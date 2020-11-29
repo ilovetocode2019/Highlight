@@ -45,7 +45,16 @@ class HighlightBot(commands.Bot):
             self.load_extension(cog)
 
     async def prepare_bot(self):
-        self.db = await asyncpg.create_pool(self.config["sql"])
+        async def init(conn):
+            await conn.set_type_codec(
+                "jsonb",
+                schema="pg_catalog",
+                encoder=json.dumps,
+                decoder=json.loads,
+                format="text",
+            )
+
+        self.db = await asyncpg.create_pool(self.config["sql"], init=init)
         self.session = aiohttp.ClientSession()
 
         query = """CREATE TABLE IF NOT EXISTS words (
