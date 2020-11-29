@@ -57,13 +57,11 @@ class HighlightBot(commands.Bot):
                    CREATE TABLE IF NOT EXISTS settings (
                    userid BIGINT PRIMARY KEY,
                    disabled BOOL,
-                   timezone INT
+                   timezone INT,
+                   blocked_users BIGINT ARRAY,
+                   blocked_channels BIGINT ARRAY
                    );
 
-                   CREATE TABLE IF NOT EXISTS blocks (
-                   userid BIGINT,
-                   blockedid bigint
-                   );
                 """
         await self.db.execute(query)
 

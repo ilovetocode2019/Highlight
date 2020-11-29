@@ -2,10 +2,9 @@ import discord
 from discord.ext import commands
 
 import datetime
-import dateparser
-import humanize
 import asyncio
 import re
+import typing
 
 class Highlight(commands.Cog):
     def __init__(self, bot):
@@ -20,74 +19,82 @@ class Highlight(commands.Cog):
         sent = []
         for word in self.bot.cached_words:
             if self.word_in_message(word, message.content.lower()):
-                rows = await self.bot.db.fetch("SELECT * FROM words WHERE words.word=$1 AND words.guildid=$2", word, message.guild.id)
+                query = """SELECT *
+                           FROM words
+                           WHERE words.word=$1 AND words.guildid=$2;
+                        """
+                row = await self.bot.db.fetchrow(query, word, message.guild.id)
 
-                blocks = await self.bot.db.fetch("SELECT userid FROM blocks WHERE blocks.blockedid=$1", message.author.id)
-                for row in rows:
-                    is_blocked = False
-                    for block in blocks:
-                        if block[0] == row[0]:
-                            is_blocked = True
-                    if not is_blocked and row[0] not in sent:
-                        self.bot.loop.create_task(self.send_highlight(message, row))
-                        sent.append(row[0])
+                if row["userid"] not in sent:
+                    self.bot.loop.create_task(self.send_highlight(message, row))
+                    sent.append(row[0])
 
     async def send_highlight(self, message, row):
-        # Select all the users who have blocked the message sender
-        user = message.guild.get_member(int(row[0]))
+        user = message.guild.get_member(int(row["userid"]))
 
         # Get the settings for the user
-        settings_row = await self.bot.db.fetchrow("SELECT * FROM settings WHERE settings.userid=$1", user.id)
+        query = """SELECT *
+                   FROM settings
+                   WHERE settings.userid=$1;
+                """
+        settings_row = await self.bot.db.fetchrow(query, user.id)
 
         if not settings_row:
-            settings_row = [str(user.id), False, 0]
+            settings_row = {"userid": user.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
 
-        # Make sure the user is not blocked
-        # Make sure the user has not disabled highlight
+        # Make sure the user to be highlighted has not disabled highlight
         # Make sure the user to be highlighted can view the channel
+        # Make sure the user to be highlighted has not blocked the channel or sender
         # Make sure the user to be highlighted is not the sender
-        if not settings_row[1] and user.id in [member.id for member in message.channel.members] and user != message.author:
+        if settings_row["disabled"]:
+            return
+        if user.id not in [member.id for member in message.channel.members]:
+            return
+        if message.channel.id in settings_row["blocked_channels"] or message.author.id in settings_row["blocked_users"]:
+            return
+        if user.id == message.author.id:
+            return
 
-            utc = ""
-            if settings_row[2] == 0:
-                utc = " UTC"
+        utc = ""
+        if settings_row["timezone"] == 0:
+            utc = " UTC"
 
-            # Create the embed for the highlight
-            em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
-            em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-            em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
+        # Create the embed for the highlight
+        em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n")
+        em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
+        em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
 
-            # Get the position of the word in the message
-            span = re.search(row[2], message.content.lower()).span()
+        # Get the position of the word in the message
+        span = re.search(row["word"], message.content.lower()).span()
 
-            msg = discord.utils.escape_markdown(message.content[:span[0]])
-            msg += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
-            msg += discord.utils.escape_markdown(message.content[span[1]:])
+        msg = discord.utils.escape_markdown(message.content[:span[0]])
+        msg += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
+        msg += discord.utils.escape_markdown(message.content[span[1]:])
 
-            # Add the trigger message to the embed
-            em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {msg}"
+        # Add the trigger message to the embed
+        em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row['timezone'])).strftime(f'%H:%M:%S{utc}')}: {msg}"
 
-            def check(ms):
-                return ms.channel.id == message.channel.id
+        def check(ms):
+            return ms.channel.id == message.channel.id
 
-            try:
-                # Wait for 10 seconds to see if any new messages should be added to the embed
-                ms = await self.bot.wait_for("message", check=check, timeout=10)
+        try:
+            # Wait for 10 seconds to see if any new messages should be added to the embed
+            ms = await self.bot.wait_for("message", check=check, timeout=10)
 
-                # To not trigger the highlight if the user replys to the tigger message
-                if ms.author.id == user.id:
-                    return
+            # To not trigger the highlight if the user replys to the tigger message
+            if ms.author.id == user.id:
+                return
 
-                # Add the new message to the embed
-                em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {ms.content}"
+            # Add the new message to the embed
+            em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=settings_row['timezone'])).strftime(f'%H:%M:%S{utc}')}: {ms.content}"
 
-            except asyncio.TimeoutError:
-                pass
+        except asyncio.TimeoutError:
+            pass
 
-            em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
+        em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
-            # Send the message
-            await user.send(embed=em)
+        # Send the message
+        await user.send(embed=em)
 
     def word_in_message(self, word, message):
         # Get the word in the message
@@ -207,51 +214,94 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="block", description="Block a user from highlighting you")
-    async def block(self, ctx, *, user: discord.Member):
-        query = """SELECT COUNT(*)
-                   FROM blocks
-                   WHERE blocks.userid=$1
-                   AND blocks.blockedid=$2;
+    @commands.command(name="block", description="Block a user from highlighting you", usage="<user or channel>", aliases=["ignore", "mute"])
+    async def block(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
+        query = """SELECT *
+                   FROM settings
+                   WHERE settings.userid=$1;
                 """
-        if (await self.bot.db.fetchrow(query, ctx.author.id, user.id))["count"] != 0:
-            await ctx.send("❌ This user is already blocked", delete_after=10)
+        settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
-            try:
-                await ctx.message.delete()
-            except discord.HTTPException:
-                pass
+        if isinstance(user, discord.User):
+            if settings:
+                if user.id in settings["blocked_users"]:
+                    await ctx.send("❌ This user is already blocked", delete_after=10)
+                else:
+                    settings["blocked_users"].append(user.id)
+                    query = """UPDATE settings
+                               SET blocked_users=$1
+                               WHERE settings.userid=$2;
+                            """
+                    await self.bot.db.execute(query, settings["blocked_users"], ctx.author.id)
+                    await ctx.send(f"🚫 Blocked {user.display_name}", delete_after=10)
+            else:
+                query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                           VALUES ($1, $2, $3, $4, $5);
+                        """
+                await self.bot.db.execute(query, ctx.author.id, False, 0, [user.id], [])
+        else:
+            if settings:
+                if user.id in settings["blocked_channels"]:
+                    await ctx.send("❌ This channel is already blocked", delete_after=10)
+                else:
+                    settings["blocked_channels"].append(user.id)
+                    query = """UPDATE settings
+                               SET blocked_channels=$1
+                               WHERE settings.userid=$2;
+                            """
+                    await self.bot.db.execute(query, settings["blocked_channels"], ctx.author.id)
+                    await ctx.send(f"🚫 Blocked {user.mention}", delete_after=10)
+            else:
+                query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                           VALUES ($1, $2, $3, $4, $5);
+                        """
+                await self.bot.db.execute(query, ctx.author.id, False, 0, [], [user.ids])
 
-            return
-
-        query = """INSERT INTO blocks (userid, blockedid)
-                   VALUES ($1, $2);
-                """
-        await self.bot.db.execute(query, ctx.author.id, user.id)
-
-        await ctx.send(f"🚫 Blocked {user.display_name}", delete_after=10)
         try:
             await ctx.message.delete()
         except discord.HTTPException:
             pass
 
-    @commands.command(name="unblock", description="Unblock a user from highlighting you")
-    async def unblock(self, ctx, *, user: discord.Member):
-        query = """DELETE FROM blocks
-                   WHERE blocks.userid=$1 AND blocks.blockedid=$2;
+    @commands.command(name="unblock", description="Unblock a user from highlighting you", usage="<use or channel>", aliases=["unmute"])
+    async def unblock(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
+        query = """SELECT *
+                   FROM settings
+                   WHERE settings.userid=$1;
                 """
-        result = await self.bot.db.execute(query, ctx.author.id, user.id)
+        settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
-        if result == "DELETE 0":
-            await ctx.send("❌ This user is not blocked", delete_after=10)
-            try:
-                await ctx.message.delete()
-            except:
-                pass
+        if isinstance(user, discord.User):
 
-            return
+            if settings:
+                if user.id not in settings["blocked_users"]:
+                    await ctx.send("❌ This user is not blocked", delete_after=10)
+                else:
+                    settings["blocked_users"].remove(user.id)
+                    query = """UPDATE settings
+                               SET blocked_users=$1
+                               WHERE settings.userid=$2;
+                            """
+                    await self.bot.db.execute(query, settings["blocked_users"], ctx.author.id)
+                    await ctx.send(f"✅ Unblocked {user.display_name}", delete_after=10)
+            else:
+                await ctx.send("❌ This user is not blocked", delete_after=10)
 
-        await ctx.send(f"✅ Unblocked {user.display_name}", delete_after=10)  
+        else:
+
+            if settings:
+                if user.id not in settings["blocked_channels"]:
+                    await ctx.send("❌ This channel is not blocked", delete_after=10)
+                else:
+                    settings["blocked_channels"].remove(user.id)
+                    query = """UPDATE settings
+                               SET blocked_channels=$1
+                               WHERE settings.userid=$2;
+                            """
+                    await self.bot.db.execute(query, settings["blocked_channels"], ctx.author.id)
+                    await ctx.send(f"✅ Unblocked {user.mention}", delete_after=10)
+            else:
+                await ctx.send("❌ This channel is not blocked")
+
         try:
             await ctx.message.delete()
         except:
@@ -260,13 +310,13 @@ class Highlight(commands.Cog):
     @commands.command(name="blocked", description="View your blocked list")
     async def blocked(self, ctx):
         query = """SELECT *
-                   FROM blocks
-                   WHERE blocks.userid=$1;
+                   FROM settings
+                   WHERE settings.userid=$1;
                 """
-        rows = await self.bot.db.fetch(query, ctx.author.id)
+        settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
-        if not rows:
-            await ctx.send("❌ You have no blocked users", delete_after=10)
+        if not settings or (not settings["blocked_channels"] and not settings["blocked_users"]):
+            await ctx.send("❌ You have no channnels or users blocked", delete_after=10)
             try:
                 await ctx.message.delete()
             except:
@@ -278,9 +328,12 @@ class Highlight(commands.Cog):
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
         em.description = ""
-        for row in rows:
-            user = self.bot.get_user(int(row["blockedid"]))
-            em.description += f"\n{user.name}"
+        for user in settings["blocked_users"]:
+            user = self.bot.get_user(user) or None
+            em.description += f"\nUser: {user}"
+        for channel in settings["blocked_channels"]:
+            channel = self.bot.get_channel(channel) or None
+            em.description += f"\nChannel: {channel}"
 
         await ctx.send(embed=em, delete_after=15)
         try:
@@ -306,12 +359,12 @@ class Highlight(commands.Cog):
 
     @commands.command(name="disable", description="Disable highlight", aliases=["dnd"])
     async def disable(self, ctx):
-        query = """INSERT INTO settings (userid, disabled, timezone)
-                   VALUES ($1, $2, $3)
+        query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                   VALUES ($1, $2, $3, $4, $5)
                    ON CONFLICT (userid)
                    DO UPDATE SET disabled=$2;
                 """
-        await self.bot.db.execute(query, ctx.author.id, True, 0)
+        await self.bot.db.execute(query, ctx.author.id, True, 0, [], [])
 
         await ctx.send(f"✅ Highlight has been disabled", delete_after=10)
 
@@ -322,12 +375,12 @@ class Highlight(commands.Cog):
 
     @commands.command(name="timezone", description="Set your timezone")
     async def timezone(self, ctx, timezone: int):
-        query = """INSERT INTO settings (userid, disabled, timezone)
-                   VALUES ($1, $2, $3)
+        query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                   VALUES ($1, $2, $3, $4, $5)
                    ON CONFLICT (userid)
                    DO UPDATE SET timezone=$3;
                 """
-        await self.bot.db.execute(query, ctx.author.id, False, timezone)
+        await self.bot.db.execute(query, ctx.author.id, False, timezone, [], [])
 
         await ctx.send("✅ Timezone saved", delete_after=10)
         try:
@@ -337,7 +390,6 @@ class Highlight(commands.Cog):
 
     @commands.command(name="settings", description="Display your settings")
     async def info(self, ctx):
-
         query = """SELECT *
                    FROM settings
                    WHERE settings.userid=$1;
