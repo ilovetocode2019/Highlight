@@ -150,22 +150,17 @@ class Highlight(commands.Cog):
                 """
         if (await self.bot.db.fetchrow(query, ctx.author.id, ctx.guild.id, word))["count"]:
             await ctx.send("❌ You already have that word", delete_after=10)
-            try:
-                await ctx.message.delete()
-            except discord.HTTPException:
-                pass
+        else:
+            query = """INSERT INTO words (userid, guildid, word)
+                    VALUES ($1, $2, $3);
+                    """
+            await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
-            return
+            if word not in self.bot.cached_words:
+                self.bot.cached_words.append(word)
+            
+            await ctx.send("✅ Words updated", delete_after=10)
 
-        query = """INSERT INTO words (userid, guildid, word)
-                   VALUES ($1, $2, $3);
-                """
-        await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
-
-        if word not in self.bot.cached_words:
-            self.bot.cached_words.append(word)
-        
-        await ctx.send("✅ Words updated", delete_after=10)
         try:
            await ctx.message.delete()
         except discord.HTTPException:
@@ -181,13 +176,9 @@ class Highlight(commands.Cog):
 
         if result == "DELETE 0":
             await ctx.send("❌ This word is not registered", delete_after=10)
-            try:
-                await ctx.message.delete()
-            except discord.HTTPException:
-                pass
-            return
+        else:
+            await ctx.send("✅ Words updated", delete_after=10)
 
-        await ctx.send("✅ Words updated", delete_after=10)
         try:
            await ctx.message.delete()
         except discord.HTTPException:
@@ -248,21 +239,16 @@ class Highlight(commands.Cog):
 
         if not rows:
             await ctx.send("❌ No words for this server", delete_after=15)
-            try:
-                await ctx.message.delete()
-            except discord.HTTPException:
-                pass
+        else:
+            em = discord.Embed()
+            em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
-            return
+            em.description = ""
+            for row in rows:
+                em.description += f"\n{row['word']}"
 
-        em = discord.Embed()
-        em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+            await ctx.send(embed=em, delete_after=15)
 
-        em.description = ""
-        for row in rows:
-            em.description += f"\n{row['word']}"
-
-        await ctx.send(embed=em, delete_after=15)
         try:
            await ctx.message.delete()
         except discord.HTTPException:
@@ -371,27 +357,21 @@ class Highlight(commands.Cog):
 
         if not settings or (not settings["blocked_channels"] and not settings["blocked_users"]):
             await ctx.send("❌ You have no channnels or users blocked", delete_after=10)
-            try:
-                await ctx.message.delete()
-            except discord.HTTPException:
-                pass
+        else:
+            em = discord.Embed()
+            em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
-            return
+            em.description = ""
+            for user in settings["blocked_users"]:
+                user = self.bot.get_user(user)
+                if user:
+                    em.description += f"\nUser: {user}"
+            for channel in settings["blocked_channels"]:
+                channel = self.bot.get_channel(channel)
+                if channel:
+                    em.description += f"\nChannel: {channel}"
 
-        em = discord.Embed()
-        em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
-
-        em.description = ""
-        for user in settings["blocked_users"]:
-            user = self.bot.get_user(user)
-            if user:
-                em.description += f"\nUser: {user}"
-        for channel in settings["blocked_channels"]:
-            channel = self.bot.get_channel(channel)
-            if channel:
-                em.description += f"\nChannel: {channel}"
-
-        await ctx.send(embed=em, delete_after=15)
+            await ctx.send(embed=em, delete_after=15)
         try:
             await ctx.message.delete()
         except discord.HTTPException:
