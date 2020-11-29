@@ -140,7 +140,7 @@ class Admin(commands.Cog):
                 pass
 
         if outdated:
-            em = discord.Embed(title="Outdated Packages", description="", color=color=discord.Color.blurple())
+            em = discord.Embed(title="Outdated Packages", description="", color=discord.Color.blurple())
             for package in outdated:
                 em.description += f"\n{package[0]} (Local: {package[1]} | PyPI: {package[2]})"
 
