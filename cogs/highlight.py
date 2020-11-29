@@ -110,7 +110,7 @@ class Highlight(commands.Cog):
         return True
 
     @commands.guild_only()
-    @commands.command(name="add", description="Adds a word (words guild specific)")
+    @commands.command(name="add", description="Add a highlight word")
     async def add(self, ctx, *, word):
         word = word.lower()
 
@@ -142,7 +142,7 @@ class Highlight(commands.Cog):
             pass
 
     @commands.guild_only()
-    @commands.command(name="remove", description="Removes a word (words guild specific)")
+    @commands.command(name="remove", description="Remove a highlight word")
     async def remove(self, ctx, *, word):
         query = """DELETE FROM words
                    WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
@@ -178,7 +178,7 @@ class Highlight(commands.Cog):
             pass
 
     @commands.guild_only()
-    @commands.command(name="show", description="Show your words for the guild")
+    @commands.command(name="show", description="View your words for the current server")
     async def show(self, ctx):
         query = """SELECT * FROM words
                    WHERE words.userid=$1 AND words.guildid=$2;
@@ -207,7 +207,7 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="block", description="Block a user from highlighting you (globally)")
+    @commands.command(name="block", description="Block a user from highlighting you")
     async def block(self, ctx, *, user: discord.Member):
         query = """SELECT COUNT(*)
                    FROM blocks
@@ -235,7 +235,7 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="unblock", description="Unblock a user from highlighting you (globally)")
+    @commands.command(name="unblock", description="Unblock a user from highlighting you")
     async def unblock(self, ctx, *, user: discord.Member):
         query = """DELETE FROM blocks
                    WHERE blocks.userid=$1 AND blocks.blockedid=$2;
@@ -257,7 +257,7 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="blocked", description="Shows your blocked list")
+    @commands.command(name="blocked", description="View your blocked list")
     async def blocked(self, ctx):
         query = """SELECT *
                    FROM blocks
@@ -335,7 +335,7 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="info", description="Display info about your settings")
+    @commands.command(name="settings", description="Display your settings")
     async def info(self, ctx):
 
         query = """SELECT *
