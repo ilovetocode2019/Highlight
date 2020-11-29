@@ -237,7 +237,7 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="block", description="Block a user from highlighting you", usage="<user or channel>", aliases=["ignore", "mute"])
+    @commands.command(name="block", description="Block a user or channel", usage="<user or channel>", aliases=["ignore", "mute"])
     async def block(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
@@ -285,7 +285,7 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="unblock", description="Unblock a user from highlighting you", usage="<use or channel>", aliases=["unmute"])
+    @commands.command(name="unblock", description="Unblock a user or channel", usage="<use or channel>", aliases=["unmute"])
     async def unblock(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
@@ -330,7 +330,7 @@ class Highlight(commands.Cog):
         except:
             pass
 
-    @commands.command(name="blocked", description="View your blocked list")
+    @commands.group(name="blocked", description="View your blocked list", invoke_without_command=True)
     async def blocked(self, ctx):
         query = """SELECT *
                    FROM settings
@@ -363,6 +363,24 @@ class Highlight(commands.Cog):
             await ctx.message.delete()
         except:
             pass
+
+    @blocked.command(name="clear", description="Clear your blocked list")
+    async def clear(self, ctx):
+        result = await Confirm("Are you sure you want to do this? I will forget all your blocked users and channels").prompt(ctx)
+        if result:
+            query = """UPDATE settings
+                       SET blocked_users=$1, blocked_channels=$2
+                       WHERE settings.userid=$3;
+                    """
+            await self.bot.db.execute(query, [], [], ctx.author.id)
+
+            await ctx.send("✅ Your blocked list has been cleared")
+
+        try:
+            await ctx.message.delete()
+        except discord.HTTPException:
+            pass
+
 
     @commands.command(name="enable", description="Enable highlight")
     async def enable(self, ctx):
