@@ -24,7 +24,7 @@ class HighlightBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.all()
         intents.presences = False
-        super().__init__(command_prefix=get_prefix, intents=intents)
+        super().__init__(command_prefix=get_prefix, description="I DM you if I find one of your words in the chat", intents=intents)
 
         with open("config.json", "r") as f:
             self.config = json.load(f)
