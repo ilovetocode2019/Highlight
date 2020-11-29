@@ -201,7 +201,7 @@ class Highlight(commands.Cog):
                 """
         await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
 
-        await ctx.send("✅ Your highlight list has been cleared", delete_after=5)
+        await ctx.send("✅ Your highlight list has been cleared", delete_after=10)
         try:
             await ctx.message.delete()
         except discord.HTTPException:
@@ -222,7 +222,7 @@ class Highlight(commands.Cog):
                 to_transfer.append({"userid": ctx.author.id, "guildid": ctx.guild.id, "word": word["word"]})
 
         if not to_transfer:
-            await ctx.send("❌ You have no words to transfer from this server")
+            await ctx.send("❌ You have no words to transfer from this server", delete_after=10)
         else:
             query = """INSERT INTO words (userid, guildid, word)
                     SELECT x.userid, x.guildid, x.word
@@ -231,7 +231,7 @@ class Highlight(commands.Cog):
                     """
 
             await self.bot.db.execute(query, to_transfer)
-            await ctx.send("✅ Your highlight words have been transferred to this server", delete_after=5)
+            await ctx.send("✅ Your highlight words have been transferred to this server", delete_after=10)
 
         try:
             await ctx.message.delete()
