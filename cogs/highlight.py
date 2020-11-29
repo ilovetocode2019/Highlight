@@ -361,15 +361,19 @@ class Highlight(commands.Cog):
             em = discord.Embed()
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
-            em.description = ""
-            for user in settings["blocked_users"]:
-                user = self.bot.get_user(user)
-                if user:
-                    em.description += f"\nUser: {user}"
-            for channel in settings["blocked_channels"]:
-                channel = self.bot.get_channel(channel)
-                if channel:
-                    em.description += f"\nChannel: {channel}"
+            users = []
+            for user_id in settings["blocked_users"]:
+                user = self.bot.get_user(user_id)
+                users.append(user.mention if user else f"User with ID of {user_id}")
+            if users:
+                em.add_field(name="Blocked Users", value="\n".join(users))
+
+            channels = []
+            for channel_id in settings["blocked_channels"]:
+                channel = self.bot.get_channel(channel_id)
+                channels.append(channel.mention if channel else f"Channel with ID of {channel_id}")
+            if channels:
+                em.add_field(name="Blocked Channels", value="\n".join(channels))
 
             await ctx.send(embed=em, delete_after=15)
         try:
