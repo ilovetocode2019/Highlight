@@ -27,7 +27,7 @@ class HighlightBot(commands.Bot):
         intents.presences = False
         super().__init__(command_prefix=get_prefix, description="I DM you if I find one of your words in the chat", intents=intents)
 
-        self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight"]
+        self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight", "cogs.timers"]
         self.startup_time = datetime.datetime.utcnow()
 
         self.loop.create_task(self.load_cogs())
@@ -69,6 +69,14 @@ class HighlightBot(commands.Bot):
                    blocked_channels BIGINT ARRAY
                    );
 
+                   CREATE TABLE IF NOT EXISTS timers (
+                   id SERIAL PRIMARY KEY,
+                   userid BIGINT,
+                   event TEXT,
+                   time TIMESTAMP,
+                   extra jsonb DEFAULT ('{}'::jsonb),
+                   created_at TIMESTAMP DEFAULT (now() at time zone 'utc')
+                   );
                 """
         await self.db.execute(query)
 

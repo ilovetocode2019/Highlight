@@ -5,6 +5,8 @@ import datetime
 import asyncio
 import re
 import typing
+import dateparser
+import humanize
 
 class Confirm(menus.Menu):
     def __init__(self, msg):
@@ -28,6 +30,18 @@ class Confirm(menus.Menu):
     async def prompt(self, ctx):
         await self.start(ctx, wait=True)
         return self.result
+
+class TimeConverter(commands.Converter):
+    async def convert(self, ctx, arg):
+        try:
+            if not arg.startswith("in") and not arg.startswith("at"):
+                arg = f"in {arg}"
+            time = dateparser.parse(arg, settings={"TIMEZONE": "UTC"})
+        except:
+            raise commands.BadArgument("Failed to parse time")
+        if not time:
+            raise commands.BadArgument("Failed to parse time")
+        return time
 
 class Highlight(commands.Cog):
     def __init__(self, bot):
@@ -400,6 +414,8 @@ class Highlight(commands.Cog):
 
     @commands.command(name="enable", description="Enable highlight")
     async def enable(self, ctx):
+        await self.bot.get_cog("Timers").cancel_timer(ctx.author.id, "disable")
+
         query = """INSERT INTO settings (userid, disabled, timezone)
                    VALUES ($1, $2, $3)
                    ON CONFLICT (userid)
@@ -415,7 +431,9 @@ class Highlight(commands.Cog):
             pass
 
     @commands.command(name="disable", description="Disable highlight", aliases=["dnd"])
-    async def disable(self, ctx):
+    async def disable(self, ctx, *, time: TimeConverter = None):
+        await self.bot.get_cog("Timers").cancel_timer(ctx.author.id, "disable")
+
         query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
                    VALUES ($1, $2, $3, $4, $5)
                    ON CONFLICT (userid)
@@ -423,7 +441,10 @@ class Highlight(commands.Cog):
                 """
         await self.bot.db.execute(query, ctx.author.id, True, 0, [], [])
 
-        await ctx.send(f"✅ Highlight has been disabled", delete_after=10)
+        if time:
+            await self.bot.get_cog("Timers").create_timer(ctx.author.id, "disabled", time, {})
+
+        await ctx.send(f"✅ Highlight has been disabled {f'for {humanize.naturaldelta(time-datetime.datetime.utcnow())}' if time else ''}", delete_after=10)
 
         try:
             await ctx.message.delete()
@@ -491,6 +512,16 @@ class Highlight(commands.Cog):
             await ctx.message.delete()
         except discord.HTTPException:
             pass
+
+    @commands.Cog.listener()
+    async def on_disabled_complete(self, timer):
+        query = """INSERT INTO settings (userid, disabled, timezone)
+                   VALUES ($1, $2, $3)
+                   ON CONFLICT (userid)
+                   DO UPDATE SET disabled=$2;
+                """
+        await self.bot.db.execute(query, timer["userid"], False, 0)
+
 
 def setup(bot):
     bot.add_cog(Highlight(bot))
