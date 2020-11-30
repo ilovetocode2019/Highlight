@@ -7,11 +7,12 @@ import logging
 import datetime
 import aiohttp
 
+import config
+
 logger = logging.getLogger("discord")
 logger.setLevel(logging.INFO)
 
 logging.basicConfig(
-
     level = logging.INFO,
     format = "(%(asctime)s) %(levelname)s %(message)s",
     datefmt="%m/%d/%y - %H:%M:%S %Z" 
@@ -26,9 +27,6 @@ class HighlightBot(commands.Bot):
         intents.presences = False
         super().__init__(command_prefix=get_prefix, description="I DM you if I find one of your words in the chat", intents=intents)
 
-        with open("config.json", "r") as f:
-            self.config = json.load(f)
-        
         self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight"]
         self.startup_time = datetime.datetime.utcnow()
 
@@ -54,7 +52,7 @@ class HighlightBot(commands.Bot):
                 format="text",
             )
 
-        self.db = await asyncpg.create_pool(self.config["sql"], init=init)
+        self.db = await asyncpg.create_pool(config.database_uri, init=init)
         self.session = aiohttp.ClientSession()
 
         query = """CREATE TABLE IF NOT EXISTS words (
@@ -81,10 +79,10 @@ class HighlightBot(commands.Bot):
 
     async def on_ready(self):
         logging.info(f"Logged in as {self.user.name} - {self.user.id}")
-        self.console = self.get_channel(self.config["console"])
+        self.console = self.get_channel(config.console)
 
     def run(self):
-        super().run(self.config["token"])
+        super().run(config.token)
         
 
 bot = HighlightBot()
