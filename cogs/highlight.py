@@ -453,18 +453,18 @@ class Highlight(commands.Cog):
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
-        if not settings:
-            await ctx.send("You have default settings", delete_after=15)
-        else:
-            em = discord.Embed(title="Highlight Settings", color=discord.Color.blurple())
-            em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
+        em = discord.Embed(title="Highlight Settings", color=discord.Color.blurple())
+        em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+
+        if not settings:
+            em.add_field(name="Timezone", value="0")
+        else:
             if settings["disabled"]:
                 em.description = "Highlight is currently disabled"
-
             em.add_field(name="Timezone", value=settings["timezone"])
 
-            await ctx.send(embed=em, delete_after=15)
+        await ctx.send(embed=em, delete_after=15)
 
         try:
             await ctx.message.delete()
