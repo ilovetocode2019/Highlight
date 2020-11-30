@@ -240,7 +240,7 @@ class Highlight(commands.Cog):
         if not rows:
             await ctx.send("❌ No words for this server", delete_after=15)
         else:
-            em = discord.Embed(color=discord.Color.blurple())
+            em = discord.Embed(title="Highlight Words", color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
             em.description = ""
@@ -456,7 +456,7 @@ class Highlight(commands.Cog):
         if not settings:
             await ctx.send("You have default settings", delete_after=15)
         else:
-            em = discord.Embed(color=discord.Color.blurple())
+            em = discord.Embed(title="Highlight Settings", color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
             if settings["disabled"]:
