@@ -473,7 +473,7 @@ class Highlight(commands.Cog):
 
     @commands.command(name="forget", description="Delete all your information")
     async def forget(self, ctx):
-        result = await Confirm("Are you sure you want to do this? I will forget your words, blocked list, and configuration").prompt(ctx)
+        result = await Confirm("Are you sure you want to do this? I will forget your words, blocked list, and settings").prompt(ctx)
         if result:
             query = """DELETE FROM words
                        WHERE words.userid=$1;
