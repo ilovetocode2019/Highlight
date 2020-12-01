@@ -60,11 +60,12 @@ class Highlight(commands.Cog):
                            FROM words
                            WHERE words.word=$1 AND words.guildid=$2;
                         """
-                row = await self.bot.db.fetchrow(query, word, message.guild.id)
+                rows = await self.bot.db.fetch(query, word, message.guild.id)
 
-                if row["userid"] not in sent:
-                    self.bot.loop.create_task(self.send_highlight(message, row))
-                    sent.append(row[0])
+                for row in rows:
+                    if row["userid"] not in sent:
+                        self.bot.loop.create_task(self.send_highlight(message, row))
+                        sent.append(row["userid"])
 
     async def send_highlight(self, message, row):
         user = message.guild.get_member(int(row["userid"]))
@@ -99,7 +100,7 @@ class Highlight(commands.Cog):
         # Create the embed for the highlight
         em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n", color=discord.Color.blurple())
         em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-        em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row[2])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
+        em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row['timezone'])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
 
         # Get the position of the word in the message
         span = re.search(row["word"], message.content.lower()).span()
@@ -416,12 +417,12 @@ class Highlight(commands.Cog):
     async def enable(self, ctx):
         await self.bot.get_cog("Timers").cancel_timer(ctx.author.id, "disable")
 
-        query = """INSERT INTO settings (userid, disabled, timezone)
-                   VALUES ($1, $2, $3)
+        query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                   VALUES ($1, $2, $3, $4, $5)
                    ON CONFLICT (userid)
                    DO UPDATE SET disabled=$2;
                 """
-        await self.bot.db.execute(query, ctx.author.id, False, 0)
+        await self.bot.db.execute(query, ctx.author.id, False, 0, [], [])
 
         await ctx.send("✅ Highlight has been enabled", delete_after=10)
 
@@ -473,7 +474,6 @@ class Highlight(commands.Cog):
                    WHERE settings.userid=$1;
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
-
 
         em = discord.Embed(title="Highlight Settings", color=discord.Color.blurple())
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)

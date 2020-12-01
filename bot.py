@@ -82,8 +82,8 @@ class HighlightBot(commands.Bot):
 
         self.cached_words = []
         for row in await self.db.fetch("SELECT word FROM words"):
-            if row[0] not in self.cached_words:
-                self.cached_words.append(row[0])
+            if row["word"] not in self.cached_words:
+                self.cached_words.append(row["word"])
 
     async def on_ready(self):
         logging.info(f"Logged in as {self.user.name} - {self.user.id}")
