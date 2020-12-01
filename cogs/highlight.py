@@ -158,23 +158,33 @@ class Highlight(commands.Cog):
     @commands.command(name="add", description="Add a highlight word")
     async def add(self, ctx, *, word):
         word = word.lower()
+        try:
+            await ctx.author.send()
+        except discord.HTTPException as exc:
+            if exc.status == 403:
+                can_dm = False
+            else:
+                can_dm = True
 
-        query = """SELECT COUNT(*)
-                   FROM words
-                   WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
-                """
-        if (await self.bot.db.fetchrow(query, ctx.author.id, ctx.guild.id, word))["count"]:
-            await ctx.send("❌ You already have that word", delete_after=10)
+        if not can_dm:
+            await ctx.send(":x: You need to enable DMs", delete_after=10)
         else:
-            query = """INSERT INTO words (userid, guildid, word)
-                    VALUES ($1, $2, $3);
+            query = """SELECT COUNT(*)
+                    FROM words
+                    WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
                     """
-            await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
+            if (await self.bot.db.fetchrow(query, ctx.author.id, ctx.guild.id, word))["count"]:
+                await ctx.send("❌ You already have that word", delete_after=10)
+            else:
+                query = """INSERT INTO words (userid, guildid, word)
+                        VALUES ($1, $2, $3);
+                        """
+                await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
-            if word not in self.bot.cached_words:
-                self.bot.cached_words.append(word)
-            
-            await ctx.send("✅ Words updated", delete_after=10)
+                if word not in self.bot.cached_words:
+                    self.bot.cached_words.append(word)
+                
+                await ctx.send("✅ Words updated", delete_after=10)
 
         try:
            await ctx.message.delete()
