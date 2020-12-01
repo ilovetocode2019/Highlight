@@ -453,39 +453,27 @@ class Highlight(commands.Cog):
             pass
 
     @commands.command(name="timezone", description="Set your timezone")
-    async def timezone(self, ctx, timezone: int):
-        query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
-                   VALUES ($1, $2, $3, $4, $5)
-                   ON CONFLICT (userid)
-                   DO UPDATE SET timezone=$3;
-                """
-        await self.bot.db.execute(query, ctx.author.id, False, timezone, [], [])
+    async def timezone(self, ctx, timezone: int = None):
+        if timezone:
+            query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                       VALUES ($1, $2, $3, $4, $5)
+                       ON CONFLICT (userid)
+                       DO UPDATE SET timezone=$3;
+                    """
 
-        await ctx.send("✅ Timezone saved", delete_after=10)
-        try:
-            await ctx.message.delete()
-        except discord.HTTPException:
-            pass
+            await self.bot.db.execute(query, ctx.author.id, False, timezone, [], [])
+            await ctx.send("✅ Timezone saved", delete_after=10)
 
-    @commands.command(name="settings", description="Display your settings")
-    async def info(self, ctx):
-        query = """SELECT *
-                   FROM settings
-                   WHERE settings.userid=$1;
-                """
-        settings = await self.bot.db.fetchrow(query, ctx.author.id)
-
-        em = discord.Embed(title="Highlight Settings", color=discord.Color.blurple())
-        em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
-
-        if not settings:
-            em.add_field(name="Timezone", value="0")
         else:
-            if settings["disabled"]:
-                em.description = "Highlight is currently disabled"
-            em.add_field(name="Timezone", value=settings["timezone"])
-
-        await ctx.send(embed=em, delete_after=15)
+            query = """SELECT *
+                       FROM settings
+                       WHERE settings.userid=$1;
+                    """
+            settings = await self.bot.db.fetchrow(query, ctx.author.id)
+            if settings:
+                await ctx.send(f"Your current timezone is `{settings['timezone']}`", delete_after=15)
+            else:
+                await ctx.send(f"Your current timezone is `{0}`", delete_after=15)
 
         try:
             await ctx.message.delete()
