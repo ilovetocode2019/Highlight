@@ -117,7 +117,7 @@ class Admin(commands.Cog):
 
     @commands.command(name="process", description="View system stats")
     async def process(self, ctx):
-        em = discord.Embed(title="Process", color=0x96c8da)
+        em = discord.Embed(title="Process", color=discord.Color.blurple())
         em.add_field(name="CPU", value=f"{psutil.cpu_percent()}% used with {plural(psutil.cpu_count()):CPU}")
 
         mem = psutil.virtual_memory()
