@@ -9,6 +9,8 @@ import subprocess
 import time
 import traceback
 import io
+import psutil
+import humanize
 import pkg_resources
 from jishaku.codeblocks import codeblock_converter
 
@@ -91,6 +93,16 @@ class Tabulate:
     def __repr__(self):
         return self.draw()
 
+class plural:
+    def __init__(self, value):
+        self.value = value
+
+    def __format__(self, format_spec):
+        if self.value == 1:
+            return f"{self.value} {format_spec}"
+        else:
+            return f"{self.value} {format_spec}s"
+
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -102,6 +114,19 @@ class Admin(commands.Cog):
 
     def cog_check(self, ctx):
         return ctx.author.id == self.bot.owner_id
+
+    @commands.command(name="process", description="View system stats")
+    async def process(self, ctx):
+        em = discord.Embed(title="Process", color=0x96c8da)
+        em.add_field(name="CPU", value=f"{psutil.cpu_percent()}% used with {plural(psutil.cpu_count()):CPU}")
+
+        mem = psutil.virtual_memory()
+        em.add_field(name="Memory", value=f"{humanize.naturalsize(mem.used)}/{humanize.naturalsize(mem.total)} ({mem.percent}% used)")
+
+        disk = psutil.disk_usage("/")
+        em.add_field(name="Disk", value=f"{humanize.naturalsize(disk.used)}/{humanize.naturalsize(disk.total)} ({disk.percent}% used)")
+
+        await ctx.send(embed=em)
 
     @commands.command(name="sql", description="Run some sql")
     async def sql(self, ctx, *, code: codeblock_converter):
