@@ -247,7 +247,7 @@ class Highlight(commands.Cog):
                     """
 
             await self.bot.db.execute(query, to_transfer)
-            await ctx.send("✅ Your highlight words have been transferred to this server", delete_after=10)
+            await ctx.send("✅ Your highlight list has been imported", delete_after=10)
 
         try:
             await ctx.message.delete()
