@@ -109,11 +109,11 @@ class Admin(commands.Cog):
         self.update_loop.start()
         self.hidden = True
 
+    async def cog_check(self, ctx):
+        return await commands.is_owner().predicate(ctx)
+
     def cog_unload(self):
         self.update_loop.cancel()
-
-    def cog_check(self, ctx):
-        return ctx.author.id == self.bot.owner_id
 
     @commands.command(name="process", description="View system stats")
     async def process(self, ctx):
