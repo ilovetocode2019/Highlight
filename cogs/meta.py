@@ -102,7 +102,7 @@ class Meta(commands.Cog):
         if isinstance(error, commands.CommandInvokeError):
             em = discord.Embed(
                 title=":warning: Error",
-                description=f"An unexpected error has occured. If your confused or think this is a bug you can join the [support server]({self.bot.support_server_link}). \n```py\n{error}```",
+                description=f"An unexpected error has occured. If you're confused or think this is a bug you can join the [support server]({self.bot.support_server_link}). \n```py\n{error}```",
                 color=discord.Color.gold()
             )
             em.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
