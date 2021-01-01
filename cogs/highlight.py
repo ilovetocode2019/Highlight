@@ -212,12 +212,17 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     @commands.command(name="clear", description="Clear your highlight list")
     async def clear(self, ctx):
-        query = """DELETE FROM words
-                   WHERE words.userid=$1 AND words.guildid=$2;
-                """
-        await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
+        result = await Confirm("Are you sure you want to clear your word list for this server?").prompt(ctx)
 
-        await ctx.send("✅ Your highlight list has been cleared", delete_after=10)
+        if result:
+            query = """DELETE FROM words
+                    WHERE words.userid=$1 AND words.guildid=$2;
+                    """
+            await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
+
+            await ctx.send("✅ Your highlight list has been cleared", delete_after=10)
+        else:
+            await ctx.send("❌ Aborting", delete_after=10)
         try:
             await ctx.message.delete()
         except discord.HTTPException:
@@ -495,16 +500,18 @@ class Highlight(commands.Cog):
         result = await Confirm("Are you sure you want to do this? I will forget your words, blocked list, and settings").prompt(ctx)
         if result:
             query = """DELETE FROM words
-                       WHERE words.userid=$1;
+                        WHERE words.userid=$1;
                     """
             await self.bot.db.execute(query, ctx.author.id)
 
-            quey = """DELETE FROM settings
-                      WHERE settings.userid=$1;
+            query = """DELETE FROM settings
+                    WHERE settings.userid=$1;
                     """
             await self.bot.db.execute(query, ctx.author.id)
 
             await ctx.send("✅ Successfully deleted your information", delete_after=10)
+        else:
+            await ctx.send("❌ Aborting", delete_after=10)
 
         try:
             await ctx.message.delete()
