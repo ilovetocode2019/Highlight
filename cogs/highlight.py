@@ -170,21 +170,21 @@ class Highlight(commands.Cog):
             await ctx.send(":x: You need to enable DMs", delete_after=10)
         else:
             query = """SELECT COUNT(*)
-                    FROM words
-                    WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
+                       FROM words
+                       WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
                     """
             if (await self.bot.db.fetchrow(query, ctx.author.id, ctx.guild.id, word))["count"]:
-                await ctx.send("❌ You already have that word", delete_after=10)
+                await ctx.send(":x: You already have that word", delete_after=10)
             else:
                 query = """INSERT INTO words (userid, guildid, word)
-                        VALUES ($1, $2, $3);
+                           VALUES ($1, $2, $3);
                         """
                 await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
                 if word not in self.bot.cached_words:
                     self.bot.cached_words.append(word)
                 
-                await ctx.send("✅ Words updated", delete_after=10)
+                await ctx.send(":white_check_mark: Words updated", delete_after=10)
 
         try:
            await ctx.message.delete()
@@ -200,9 +200,9 @@ class Highlight(commands.Cog):
         result = await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
         if result == "DELETE 0":
-            await ctx.send("❌ This word is not registered", delete_after=10)
+            await ctx.send(":x: This word is not registered", delete_after=10)
         else:
-            await ctx.send("✅ Words updated", delete_after=10)
+            await ctx.send(":white_check_mark: Words updated", delete_after=10)
 
         try:
            await ctx.message.delete()
@@ -216,13 +216,13 @@ class Highlight(commands.Cog):
 
         if result:
             query = """DELETE FROM words
-                    WHERE words.userid=$1 AND words.guildid=$2;
+                       WHERE words.userid=$1 AND words.guildid=$2;
                     """
             await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
 
-            await ctx.send("✅ Your highlight list has been cleared", delete_after=10)
+            await ctx.send(":white_check_mark: Your highlight list has been cleared", delete_after=10)
         else:
-            await ctx.send("❌ Aborting", delete_after=10)
+            await ctx.send(":x: Aborting", delete_after=10)
         try:
             await ctx.message.delete()
         except discord.HTTPException:
@@ -243,16 +243,16 @@ class Highlight(commands.Cog):
                 to_transfer.append({"userid": ctx.author.id, "guildid": ctx.guild.id, "word": word["word"]})
 
         if not to_transfer:
-            await ctx.send("❌ You have no words to transfer from this server", delete_after=10)
+            await ctx.send(":x: You have no words to transfer from this server", delete_after=10)
         else:
             query = """INSERT INTO words (userid, guildid, word)
-                    SELECT x.userid, x.guildid, x.word
-                    FROM jsonb_to_recordset($1::jsonb) AS
-                    x(userid BIGINT, guildid BIGINT, word TEXT);
+                       SELECT x.userid, x.guildid, x.word
+                       FROM jsonb_to_recordset($1::jsonb) AS
+                       x(userid BIGINT, guildid BIGINT, word TEXT);
                     """
 
             await self.bot.db.execute(query, to_transfer)
-            await ctx.send("✅ Your highlight list has been imported", delete_after=10)
+            await ctx.send(":white_check_mark: Your highlight list has been imported", delete_after=10)
 
         try:
             await ctx.message.delete()
@@ -268,7 +268,7 @@ class Highlight(commands.Cog):
         rows = await self.bot.db.fetch(query, ctx.author.id, ctx.guild.id)
 
         if not rows:
-            await ctx.send("❌ No words for this server", delete_after=15)
+            await ctx.send(":x: No words for this server", delete_after=15)
         else:
             em = discord.Embed(title="Highlight Words", color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
@@ -295,7 +295,7 @@ class Highlight(commands.Cog):
         if isinstance(user, discord.User):
             if settings:
                 if user.id in settings["blocked_users"]:
-                    await ctx.send("❌ This user is already blocked", delete_after=10)
+                    await ctx.send(":x: This user is already blocked", delete_after=10)
                 else:
                     settings["blocked_users"].append(user.id)
                     query = """UPDATE settings
@@ -312,7 +312,7 @@ class Highlight(commands.Cog):
         else:
             if settings:
                 if user.id in settings["blocked_channels"]:
-                    await ctx.send("❌ This channel is already blocked", delete_after=10)
+                    await ctx.send(":x: This channel is already blocked", delete_after=10)
                 else:
                     settings["blocked_channels"].append(user.id)
                     query = """UPDATE settings
@@ -344,7 +344,7 @@ class Highlight(commands.Cog):
 
             if settings:
                 if user.id not in settings["blocked_users"]:
-                    await ctx.send("❌ This user is not blocked", delete_after=10)
+                    await ctx.send(":x: This user is not blocked", delete_after=10)
                 else:
                     settings["blocked_users"].remove(user.id)
                     query = """UPDATE settings
@@ -352,15 +352,15 @@ class Highlight(commands.Cog):
                                WHERE settings.userid=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_users"], ctx.author.id)
-                    await ctx.send(f"✅ Unblocked {user.display_name}", delete_after=10)
+                    await ctx.send(f":white_check_mark: Unblocked {user.display_name}", delete_after=10)
             else:
-                await ctx.send("❌ This user is not blocked", delete_after=10)
+                await ctx.send(":x: This user is not blocked", delete_after=10)
 
         else:
 
             if settings:
                 if user.id not in settings["blocked_channels"]:
-                    await ctx.send("❌ This channel is not blocked", delete_after=10)
+                    await ctx.send(":x: This channel is not blocked", delete_after=10)
                 else:
                     settings["blocked_channels"].remove(user.id)
                     query = """UPDATE settings
@@ -368,9 +368,9 @@ class Highlight(commands.Cog):
                                WHERE settings.userid=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_channels"], ctx.author.id)
-                    await ctx.send(f"✅ Unblocked {user.mention}", delete_after=10)
+                    await ctx.send(f":white_check_mark: Unblocked {user.mention}", delete_after=10)
             else:
-                await ctx.send("❌ This channel is not blocked")
+                await ctx.send(":x: This channel is not blocked")
 
         try:
             await ctx.message.delete()
@@ -386,7 +386,7 @@ class Highlight(commands.Cog):
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
         if not settings or (not settings["blocked_channels"] and not settings["blocked_users"]):
-            await ctx.send("❌ You have no channnels or users blocked", delete_after=10)
+            await ctx.send(":x: You have no channnels or users blocked", delete_after=10)
         else:
             em = discord.Embed(color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
@@ -421,7 +421,7 @@ class Highlight(commands.Cog):
                     """
             await self.bot.db.execute(query, [], [], ctx.author.id)
 
-            await ctx.send("✅ Your blocked list has been cleared")
+            await ctx.send(":white_check_mark: Your blocked list has been cleared")
 
         try:
             await ctx.message.delete()
@@ -439,7 +439,7 @@ class Highlight(commands.Cog):
                 """
         await self.bot.db.execute(query, ctx.author.id, False, 0, [], [])
 
-        await ctx.send("✅ Highlight has been enabled", delete_after=10)
+        await ctx.send(":white_check_mark: Highlight has been enabled", delete_after=10)
 
         try:
             await ctx.message.delete()
@@ -460,7 +460,7 @@ class Highlight(commands.Cog):
         if time:
             await self.bot.get_cog("Timers").create_timer(ctx.author.id, "disabled", time, {})
 
-        await ctx.send(f"✅ Highlight has been disabled {f'for {humanize.naturaldelta(time-datetime.datetime.utcnow())}' if time else ''}", delete_after=10)
+        await ctx.send(f":white_check_mark: Highlight has been disabled {f'for {humanize.naturaldelta(time-datetime.datetime.utcnow())}' if time else ''}", delete_after=10)
 
         try:
             await ctx.message.delete()
@@ -477,7 +477,7 @@ class Highlight(commands.Cog):
                     """
 
             await self.bot.db.execute(query, ctx.author.id, False, timezone, [], [])
-            await ctx.send("✅ Timezone saved", delete_after=10)
+            await ctx.send(":white_check_mark: Timezone saved", delete_after=10)
 
         else:
             query = """SELECT *
@@ -500,18 +500,18 @@ class Highlight(commands.Cog):
         result = await Confirm("Are you sure you want to do this? I will forget your words, blocked list, and settings").prompt(ctx)
         if result:
             query = """DELETE FROM words
-                        WHERE words.userid=$1;
+                       WHERE words.userid=$1;
                     """
             await self.bot.db.execute(query, ctx.author.id)
 
             query = """DELETE FROM settings
-                    WHERE settings.userid=$1;
+                       WHERE settings.userid=$1;
                     """
             await self.bot.db.execute(query, ctx.author.id)
 
-            await ctx.send("✅ Successfully deleted your information", delete_after=10)
+            await ctx.send(":white_check_mark: Successfully deleted your information", delete_after=10)
         else:
-            await ctx.send("❌ Aborting", delete_after=10)
+            await ctx.send(":x: Aborting", delete_after=10)
 
         try:
             await ctx.message.delete()
