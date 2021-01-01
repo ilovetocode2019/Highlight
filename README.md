@@ -6,7 +6,7 @@ If you have any questions or issues, join the [support server](https://discord.g
 
 ## Features
 - DM notifications for highlight words
-- Timezone configuration
+- Time zone configuration
 - Ability to temporarily disable highlight
 - Ability to block channels or users
 - Ability to import words from another server
