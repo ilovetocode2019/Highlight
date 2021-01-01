@@ -26,21 +26,15 @@ class HighlightBot(commands.Bot):
         intents = discord.Intents.all()
         intents.presences = False
         super().__init__(command_prefix=get_prefix, description="I DM you if I find one of your words in the chat", intents=intents)
-
-        self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight", "cogs.timers"]
-        self.startup_time = datetime.datetime.utcnow()
-
-        self.loop.create_task(self.load_cogs())
         self.loop.create_task(self.prepare_bot())
 
-    async def load_cogs(self):
-        bot.remove_command("help")
-
+        self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight", "cogs.timers"]
         self.load_extension("jishaku")
-        self.get_command("jishaku")
-
         for cog in self.cogs_to_add:
             self.load_extension(cog)
+
+        self.startup_time = datetime.datetime.utcnow()
+        self.support_server_link = "https://discord.gg/eHxvStNJb7"
 
     async def prepare_bot(self):
         async def init(conn):
