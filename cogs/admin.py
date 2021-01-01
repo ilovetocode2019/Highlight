@@ -115,6 +115,16 @@ class Admin(commands.Cog):
     def cog_unload(self):
         self.update_loop.cancel()
 
+    @commands.command(name="reload", description="Reload an extension")
+    @commands.is_owner()
+    async def reload(self, ctx, extension):
+        try:
+            self.bot.reload_extension(extension)
+            await ctx.send(f"**:repeat: Reloaded** `{extension}`")
+        except Exception as e:
+            full = "".join(traceback.format_exception(type(e), e, e.__traceback__, 1))
+            await ctx.send(f"**:warning: Extension `{extension}` not reloaded.**\n```py\n{full}```")
+
     @commands.command(name="process", description="View system stats")
     async def process(self, ctx):
         em = discord.Embed(title="Process", color=discord.Color.blurple())
@@ -209,27 +219,33 @@ class Admin(commands.Cog):
 
     @tasks.loop(hours=10)
     async def update_loop(self):
-        with open("requirements.txt") as file:
-            lines = file.read()
-            installed = lines.split("\n")
+        installed = [
+            "jishaku",
+            "asyncpg",
+            "dateparser",
+            "humanize"
+        ]
 
         outdated = []
         for package in installed:
             try:
                 current_version = pkg_resources.get_distribution(package).version
                 async with self.bot.session.get(f"https://pypi.org/pypi/{package}/json") as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        pypi_version = data["info"]["version"]
-                        if current_version != pypi_version:
-                            outdated.append((package, current_version, pypi_version))
-            except:
-                pass
+                    data = await resp.json()
+
+                pypi_version = data["info"]["version"]
+                if current_version != pypi_version:
+                    outdated.append((package, current_version, pypi_version))
+            except Exception as exc:
+                traceback.print_exception(type(exc), exc, exc.__traceback__,file=sys.stderr)
+
+            await asyncio.sleep(5)
 
         if outdated:
-            em = discord.Embed(title="Outdated Packages", description="", color=discord.Color.blurple())
+            joined = " ".join([package[0] for package in outdated])
+            em = discord.Embed(title="Outdated Packages", description=f"Update with `jsk sh venv/bin/pip install -U {joined}`\n", color=0x96c8da)
             for package in outdated:
-                em.description += f"\n{package[0]} (Local: {package[1]} | PyPI: {package[2]})"
+                em.description += f"\n{package[0]} (Current: {package[1]} | Latest: {package[2]})"
 
             await self.bot.console.send(embed=em)
 
