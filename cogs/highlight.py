@@ -164,20 +164,32 @@ class Highlight(commands.Cog):
 
         return True
 
+    async def can_dm(self, user):
+        try:
+            await user.send()
+        except discord.HTTPException as exc:
+            if exc.code == 50006:
+                return True
+            elif exc.code == 50007:
+                return False
+            else:
+                raise
+
     @commands.guild_only()
     @commands.command(name="add", description="Add a highlight word")
     async def add(self, ctx, *, word):
         word = word.lower()
-        try:
-            await ctx.author.send()
-        except discord.HTTPException as exc:
-            if exc.status == 403:
-                can_dm = False
-            else:
-                can_dm = True
+        can_dm = await self.can_dm(ctx.author)
 
         if not can_dm:
             await ctx.send(":x: You need to enable DMs", delete_after=5)
+        elif f"<@!{self.bot.user.id}>" in word:
+            await ctx.send(":x: Your highlight word can't mention me", delete_after=5)  
+        elif len(word) < 2:
+            await ctx.send(":x: Your word must be at least 2 characters", delete_after=5)
+        elif len(word) > 20:
+            await ctx.send(":x: Your word cannot be bigger than 20 characters", delete_after=5)
+
         else:
             query = """SELECT COUNT(*)
                        FROM words
