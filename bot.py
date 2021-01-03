@@ -53,13 +53,13 @@ class HighlightBot(commands.Bot):
 
         log.info("Initiating database")
         query = """CREATE TABLE IF NOT EXISTS words (
-                   userid BIGINT,
-                   guildid BIGINT,
+                   user_id BIGINT,
+                   guild_id BIGINT,
                    word TEXT
                    );
 
                    CREATE TABLE IF NOT EXISTS settings (
-                   userid BIGINT PRIMARY KEY,
+                   user_id BIGINT PRIMARY KEY,
                    disabled BOOL,
                    timezone INT,
                    blocked_users BIGINT ARRAY,
@@ -68,7 +68,7 @@ class HighlightBot(commands.Bot):
 
                    CREATE TABLE IF NOT EXISTS timers (
                    id SERIAL PRIMARY KEY,
-                   userid BIGINT,
+                   user_id BIGINT,
                    event TEXT,
                    time TIMESTAMP,
                    extra jsonb DEFAULT ('{}'::jsonb),

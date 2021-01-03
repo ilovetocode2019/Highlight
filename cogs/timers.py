@@ -15,17 +15,17 @@ class Timers(commands.Cog):
     def cog_unload(self):
         self.loop.cancel()
 
-    async def create_timer(self, userid, event, time, extra):
-        query = """INSERT INTO timers (userid, event, time, extra)
+    async def create_timer(self, user_id, event, time, extra):
+        query = """INSERT INTO timers (user_id, event, time, extra)
                    VALUES ($1, $2, $3, $4);
                 """
-        await self.bot.db.execute(query, userid, event, time, extra)
+        await self.bot.db.execute(query, user_id, event, time, extra)
 
-    async def cancel_timer(self, userid, event):
+    async def cancel_timer(self, user_id, event):
         query = """DELETE FROM timers
-                   WHERE timers.userid=$1 AND timers.event=$2;
+                   WHERE timers.user_id=$1 AND timers.event=$2;
                 """
-        await self.bot.db.execute(query, userid, event)
+        await self.bot.db.execute(query, user_id, event)
  
     @tasks.loop(seconds=30)
     async def loop(self):

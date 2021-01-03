@@ -60,7 +60,7 @@ class Highlight(commands.Cog):
             if self.word_in_message(word, message.content.lower()):
                 query = """SELECT *
                            FROM words
-                           WHERE words.word=$1 AND words.guildid=$2;
+                           WHERE words.word=$1 AND words.guild_id=$2;
                         """
                 rows = await self.bot.db.fetch(query, word, message.guild.id)
 
@@ -73,26 +73,26 @@ class Highlight(commands.Cog):
                     await message.guild.chunk(cache=True)
 
                 for row in rows:
-                    if row["userid"] not in sent:
+                    if row["user_id"] not in sent:
                         self.bot.loop.create_task(self.send_highlight(message, row))
-                        sent.append(row["userid"])
+                        sent.append(row["user_id"])
 
     async def send_highlight(self, message, row):
-        member = message.guild.get_member(row["userid"])
+        member = message.guild.get_member(row["user_id"])
         # Member probably left
         if not member:
-            log.info("Received a highlight for user ID %s (guild ID %s) but member is None. Member probably left guild.", row["userid"], row["guildid"])
+            log.info("Received a highlight for user ID %s (guild ID %s) but member is None. Member probably left guild.", row["user_id"], row["guild_id"])
             return
 
         # Get the settings for the user
         query = """SELECT *
                    FROM settings
-                   WHERE settings.userid=$1;
+                   WHERE settings.user_id=$1;
                 """
         settings_row = await self.bot.db.fetchrow(query, member.id)
 
         if not settings_row:
-            settings_row = {"userid": member.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
+            settings_row = {"user_id": member.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
 
         # Make sure the user has not disabled highlight, can view the channel, has not blocked the author or channel, is not the author
         if settings_row["disabled"]:
@@ -196,12 +196,12 @@ class Highlight(commands.Cog):
         else:
             query = """SELECT COUNT(*)
                        FROM words
-                       WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
+                       WHERE words.user_id=$1 AND words.guild_id=$2 AND words.word=$3;
                     """
             if (await self.bot.db.fetchrow(query, ctx.author.id, ctx.guild.id, word))["count"]:
                 await ctx.send(":x: You already have that word", delete_after=5)
             else:
-                query = """INSERT INTO words (userid, guildid, word)
+                query = """INSERT INTO words (user_id, guild_id, word)
                            VALUES ($1, $2, $3);
                         """
                 await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
@@ -220,7 +220,7 @@ class Highlight(commands.Cog):
     @commands.command(name="remove", description="Remove a highlight word")
     async def remove(self, ctx, *, word):
         query = """DELETE FROM words
-                   WHERE words.userid=$1 AND words.guildid=$2 AND words.word=$3;
+                   WHERE words.user_id=$1 AND words.guild_id=$2 AND words.word=$3;
                 """
         result = await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
@@ -241,7 +241,7 @@ class Highlight(commands.Cog):
 
         if result:
             query = """DELETE FROM words
-                       WHERE words.userid=$1 AND words.guildid=$2;
+                       WHERE words.user_id=$1 AND words.guild_id=$2;
                     """
             await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
 
@@ -258,22 +258,22 @@ class Highlight(commands.Cog):
     async def transfer(self, ctx, guild_id: int):
         query = """SELECT *
                    FROM words
-                   WHERE words.userid=$1 AND (words.guildid=$2 OR words.guildid=$3);
+                   WHERE words.user_id=$1 AND (words.guild_id=$2 OR words.guild_id=$3);
                 """
         words = await self.bot.db.fetch(query, ctx.author.id, guild_id, ctx.guild.id)
 
         to_transfer = []
         for word in words:
-            if word["guildid"] == guild_id and word["word"] not in [x["word"] for x in words if x["guildid"] == ctx.guild.id]:
-                to_transfer.append({"userid": ctx.author.id, "guildid": ctx.guild.id, "word": word["word"]})
+            if word["guild_id"] == guild_id and word["word"] not in [x["word"] for x in words if x["guild_id"] == ctx.guild.id]:
+                to_transfer.append({"user_id": ctx.author.id, "guild_id": ctx.guild.id, "word": word["word"]})
 
         if not to_transfer:
             await ctx.send(":x: You have no words to transfer from this server", delete_after=5)
         else:
-            query = """INSERT INTO words (userid, guildid, word)
-                       SELECT x.userid, x.guildid, x.word
+            query = """INSERT INTO words (user_id, guild_id, word)
+                       SELECT x.user_id, x.guild_id, x.word
                        FROM jsonb_to_recordset($1::jsonb) AS
-                       x(userid BIGINT, guildid BIGINT, word TEXT);
+                       x(user_id BIGINT, guild_id BIGINT, word TEXT);
                     """
 
             await self.bot.db.execute(query, to_transfer)
@@ -288,12 +288,12 @@ class Highlight(commands.Cog):
     @commands.command(name="show", description="View your words for the current server")
     async def show(self, ctx):
         query = """SELECT * FROM words
-                   WHERE words.userid=$1 AND words.guildid=$2;
+                   WHERE words.user_id=$1 AND words.guild_id=$2;
                 """
         rows = await self.bot.db.fetch(query, ctx.author.id, ctx.guild.id)
 
         if not rows:
-            await ctx.send("No words for this server", delete_after=10)
+            await ctx.send("You have no words for this server", delete_after=10)
         else:
             em = discord.Embed(title="Highlight Words", color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
@@ -313,7 +313,7 @@ class Highlight(commands.Cog):
     async def block(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
-                   WHERE settings.userid=$1;
+                   WHERE settings.user_id=$1;
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
@@ -325,12 +325,12 @@ class Highlight(commands.Cog):
                     settings["blocked_users"].append(user.id)
                     query = """UPDATE settings
                                SET blocked_users=$1
-                               WHERE settings.userid=$2;
+                               WHERE settings.user_id=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_users"], ctx.author.id)
                     await ctx.send(f":no_entry_sign: Blocked {user.display_name}", delete_after=5)
             else:
-                query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                query = """INSERT INTO settings (user_id, disabled, timezone, blocked_users, blocked_channels)
                            VALUES ($1, $2, $3, $4, $5);
                         """
                 await self.bot.db.execute(query, ctx.author.id, False, 0, [user.id], [])
@@ -342,15 +342,15 @@ class Highlight(commands.Cog):
                     settings["blocked_channels"].append(user.id)
                     query = """UPDATE settings
                                SET blocked_channels=$1
-                               WHERE settings.userid=$2;
+                               WHERE settings.user_id=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_channels"], ctx.author.id)
                     await ctx.send(f":no_entry_sign: Blocked {user.mention}", delete_after=5)
             else:
-                query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+                query = """INSERT INTO settings (user_id, disabled, timezone, blocked_users, blocked_channels)
                            VALUES ($1, $2, $3, $4, $5);
                         """
-                await self.bot.db.execute(query, ctx.author.id, False, 0, [], [user.ids])
+                await self.bot.db.execute(query, ctx.author.id, False, 0, [], [user.id])
 
         try:
             await ctx.message.delete()
@@ -361,7 +361,7 @@ class Highlight(commands.Cog):
     async def unblock(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
-                   WHERE settings.userid=$1;
+                   WHERE settings.user_id=$1;
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
@@ -374,7 +374,7 @@ class Highlight(commands.Cog):
                     settings["blocked_users"].remove(user.id)
                     query = """UPDATE settings
                                SET blocked_users=$1
-                               WHERE settings.userid=$2;
+                               WHERE settings.user_id=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_users"], ctx.author.id)
                     await ctx.send(f":white_check_mark: Unblocked {user.display_name}", delete_after=5)
@@ -390,7 +390,7 @@ class Highlight(commands.Cog):
                     settings["blocked_channels"].remove(user.id)
                     query = """UPDATE settings
                                SET blocked_channels=$1
-                               WHERE settings.userid=$2;
+                               WHERE settings.user_id=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_channels"], ctx.author.id)
                     await ctx.send(f":white_check_mark: Unblocked {user.mention}", delete_after=5)
@@ -406,7 +406,7 @@ class Highlight(commands.Cog):
     async def blocked(self, ctx):
         query = """SELECT *
                    FROM settings
-                   WHERE settings.userid=$1;
+                   WHERE settings.user_id=$1;
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
@@ -442,7 +442,7 @@ class Highlight(commands.Cog):
         if result:
             query = """UPDATE settings
                        SET blocked_users=$1, blocked_channels=$2
-                       WHERE settings.userid=$3;
+                       WHERE settings.user_id=$3;
                     """
             await self.bot.db.execute(query, [], [], ctx.author.id)
 
@@ -457,9 +457,9 @@ class Highlight(commands.Cog):
     async def enable(self, ctx):
         await self.bot.get_cog("Timers").cancel_timer(ctx.author.id, "disable")
 
-        query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+        query = """INSERT INTO settings (user_id, disabled, timezone, blocked_users, blocked_channels)
                    VALUES ($1, $2, $3, $4, $5)
-                   ON CONFLICT (userid)
+                   ON CONFLICT (user_id)
                    DO UPDATE SET disabled=$2;
                 """
         await self.bot.db.execute(query, ctx.author.id, False, 0, [], [])
@@ -475,9 +475,9 @@ class Highlight(commands.Cog):
     async def disable(self, ctx, *, time: TimeConverter = None):
         await self.bot.get_cog("Timers").cancel_timer(ctx.author.id, "disable")
 
-        query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+        query = """INSERT INTO settings (user_id, disabled, timezone, blocked_users, blocked_channels)
                    VALUES ($1, $2, $3, $4, $5)
-                   ON CONFLICT (userid)
+                   ON CONFLICT (user_id)
                    DO UPDATE SET disabled=$2;
                 """
         await self.bot.db.execute(query, ctx.author.id, True, 0, [], [])
@@ -495,9 +495,9 @@ class Highlight(commands.Cog):
     @commands.command(name="timezone", description="Set your timezone")
     async def timezone(self, ctx, timezone: int = None):
         if timezone:
-            query = """INSERT INTO settings (userid, disabled, timezone, blocked_users, blocked_channels)
+            query = """INSERT INTO settings (user_id, disabled, timezone, blocked_users, blocked_channels)
                        VALUES ($1, $2, $3, $4, $5)
-                       ON CONFLICT (userid)
+                       ON CONFLICT (user_id)
                        DO UPDATE SET timezone=$3;
                     """
 
@@ -507,7 +507,7 @@ class Highlight(commands.Cog):
         else:
             query = """SELECT *
                        FROM settings
-                       WHERE settings.userid=$1;
+                       WHERE settings.user_id=$1;
                     """
             settings = await self.bot.db.fetchrow(query, ctx.author.id)
             if settings:
@@ -525,12 +525,12 @@ class Highlight(commands.Cog):
         result = await Confirm("Are you sure you want to do this? I will forget your words, blocked list, and settings").prompt(ctx)
         if result:
             query = """DELETE FROM words
-                       WHERE words.userid=$1;
+                       WHERE words.user_id=$1;
                     """
             await self.bot.db.execute(query, ctx.author.id)
 
             query = """DELETE FROM settings
-                       WHERE settings.userid=$1;
+                       WHERE settings.user_id=$1;
                     """
             await self.bot.db.execute(query, ctx.author.id)
 
@@ -545,12 +545,12 @@ class Highlight(commands.Cog):
 
     @commands.Cog.listener()
     async def on_disabled_complete(self, timer):
-        query = """INSERT INTO settings (userid, disabled, timezone)
+        query = """INSERT INTO settings (user_id, disabled, timezone)
                    VALUES ($1, $2, $3)
-                   ON CONFLICT (userid)
+                   ON CONFLICT (user_id)
                    DO UPDATE SET disabled=$2;
                 """
-        await self.bot.db.execute(query, timer["userid"], False, 0)
+        await self.bot.db.execute(query, timer["user_id"], False, 0)
 
 
 def setup(bot):
