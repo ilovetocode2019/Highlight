@@ -69,7 +69,7 @@ class Highlight(commands.Cog):
 
                 # Somehow the guild isn't chunked
                 if not message.guild.chunked:
-                    log.warning(f"Guild ID {message.guild.id} is not chunked. Chunking guild now.")
+                    log.warning("Guild ID %s is not chunked. Chunking guild now.", message.guild.id)
                     await message.guild.chunk(cache=True)
 
                 for row in rows:
@@ -78,9 +78,10 @@ class Highlight(commands.Cog):
                         sent.append(row["userid"])
 
     async def send_highlight(self, message, row):
-        member = message.guild.get_member(int(row["userid"]))
+        member = message.guild.get_member(row["userid"])
         # Member probably left
         if not member:
+            log.info("Received a highlight for user ID %s (guild ID %s) but member is None. Member probably left guild.", row["userid"], row["guildid"])
             return
 
         # Get the settings for the user
@@ -144,7 +145,7 @@ class Highlight(commands.Cog):
         try:
             await member.send(embed=em)
         except discord.Forbidden:
-            log.warning(f"Couldn't send highlight message to user ID {member.id}")
+            log.warning("Forbidden to send highlight message to user ID %s. DMs probably disabled.", member.id)
 
     def word_in_message(self, word, message):
         # Get the word in the message
