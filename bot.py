@@ -9,17 +9,15 @@ import aiohttp
 
 import config
 
-logger = logging.getLogger("discord")
-logger.setLevel(logging.INFO)
-
+log = logging.getLogger("highlight")
 logging.basicConfig(
     level = logging.INFO,
     format = "(%(asctime)s) %(levelname)s %(message)s",
     datefmt="%m/%d/%y - %H:%M:%S %Z" 
 )
 
-def get_prefix(client, msg):
-    return commands.when_mentioned(client, msg)
+def get_prefix(client, message):
+    return commands.when_mentioned(client, message)
 
 class HighlightBot(commands.Bot):
     def __init__(self):
@@ -28,6 +26,7 @@ class HighlightBot(commands.Bot):
         super().__init__(command_prefix=get_prefix, description="I DM you if I find one of your words in the chat", intents=intents)
         self.loop.create_task(self.prepare_bot())
 
+        log.info("Loading extensions")
         self.cogs_to_add = ["cogs.meta", "cogs.admin", "cogs.highlight", "cogs.timers"]
         self.load_extension("jishaku")
         for cog in self.cogs_to_add:
@@ -37,6 +36,9 @@ class HighlightBot(commands.Bot):
         self.support_server_link = "https://discord.gg/eHxvStNJb7"
 
     async def prepare_bot(self):
+        log.info("Creating aiohttp session")
+        self.session = aiohttp.ClientSession()
+
         async def init(conn):
             await conn.set_type_codec(
                 "jsonb",
@@ -46,9 +48,10 @@ class HighlightBot(commands.Bot):
                 format="text",
             )
 
+        log.info("Connecting to database")
         self.db = await asyncpg.create_pool(config.database_uri, init=init)
-        self.session = aiohttp.ClientSession()
 
+        log.info("Initiating database")
         query = """CREATE TABLE IF NOT EXISTS words (
                    userid BIGINT,
                    guildid BIGINT,
@@ -74,18 +77,18 @@ class HighlightBot(commands.Bot):
                 """
         await self.db.execute(query)
 
+        log.info("Preparing words cache")
         self.cached_words = []
         for row in await self.db.fetch("SELECT word FROM words"):
             if row["word"] not in self.cached_words:
                 self.cached_words.append(row["word"])
 
     async def on_ready(self):
-        logging.info(f"Logged in as {self.user.name} - {self.user.id}")
+        log.info(f"Logged in as {self.user.name} - {self.user.id}")
         self.console = self.get_channel(config.console)
 
     def run(self):
         super().run(config.token)
         
-
 bot = HighlightBot()
 bot.run()
