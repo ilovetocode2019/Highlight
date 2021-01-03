@@ -68,29 +68,33 @@ class Highlight(commands.Cog):
                         sent.append(row["userid"])
 
     async def send_highlight(self, message, row):
-        user = message.guild.get_member(int(row["userid"]))
+        # Somehow the guild isn't chunked
+        if not message.guild.chunked:
+            await message.guild.chunk(cache=True)
+
+        member = message.guild.get_member(int(row["userid"]))
+        # Member probably left
+        if not member:
+            return
 
         # Get the settings for the user
         query = """SELECT *
                    FROM settings
                    WHERE settings.userid=$1;
                 """
-        settings_row = await self.bot.db.fetchrow(query, user.id)
+        settings_row = await self.bot.db.fetchrow(query, member.id)
 
         if not settings_row:
             settings_row = {"userid": user.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
 
-        # Make sure the user to be highlighted has not disabled highlight
-        # Make sure the user to be highlighted can view the channel
-        # Make sure the user to be highlighted has not blocked the channel or sender
-        # Make sure the user to be highlighted is not the sender
+        # Make sure the user has not disabled highlight, can view the channel, has not blocked the author or channel, is not the author
         if settings_row["disabled"]:
             return
-        if user.id not in [member.id for member in message.channel.members]:
+        if member.id not in [member.id for member in message.channel.members]:
             return
         if message.channel.id in settings_row["blocked_channels"] or message.author.id in settings_row["blocked_users"]:
             return
-        if user.id == message.author.id:
+        if member.id == message.author.id:
             return
 
         utc = ""
@@ -119,8 +123,8 @@ class Highlight(commands.Cog):
             # Wait for 10 seconds to see if any new messages should be added to the embed
             ms = await self.bot.wait_for("message", check=check, timeout=10)
 
-            # To not trigger the highlight if the user replys to the tigger message
-            if ms.author.id == user.id:
+            # Don't trigger the highlight if the user replies to the tigger message
+            if ms.author.id == member.id:
                 return
 
             # Add the new message to the embed
@@ -132,7 +136,7 @@ class Highlight(commands.Cog):
         em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
         # Send the message
-        await user.send(embed=em)
+        await member.send(embed=em)
 
     def word_in_message(self, word, message):
         # Get the word in the message
@@ -183,7 +187,7 @@ class Highlight(commands.Cog):
 
                 if word not in self.bot.cached_words:
                     self.bot.cached_words.append(word)
-                
+
                 await ctx.send(":white_check_mark: Words updated", delete_after=5)
 
         try:
