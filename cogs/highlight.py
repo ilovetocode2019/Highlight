@@ -55,7 +55,6 @@ class Highlight(commands.Cog):
         if message.author.bot:
             return
 
-        # Loop through the trigger words and run send_highlight if the tigger word is in the message
         sent = []
         for word in self.bot.cached_words:
             if self.word_in_message(word, message.content.lower()):
@@ -65,17 +64,20 @@ class Highlight(commands.Cog):
                         """
                 rows = await self.bot.db.fetch(query, word, message.guild.id)
 
+                if not rows:
+                    continue
+
+                # Somehow the guild isn't chunked
+                if not message.guild.chunked:
+                    log.warning(f"Guild ID {message.guild.id} is not chunked. Chunking guild now.")
+                    await message.guild.chunk(cache=True)
+
                 for row in rows:
                     if row["userid"] not in sent:
                         self.bot.loop.create_task(self.send_highlight(message, row))
                         sent.append(row["userid"])
 
     async def send_highlight(self, message, row):
-        # Somehow the guild isn't chunked
-        if not message.guild.chunked:
-            log.warning(f"Guild ID {message.guild.id} is not chunked. Chunking guild now.")
-            await message.guild.chunk(cache=True)
-
         member = message.guild.get_member(int(row["userid"]))
         # Member probably left
         if not member:
@@ -184,7 +186,7 @@ class Highlight(commands.Cog):
         if not can_dm:
             await ctx.send(":x: You need to enable DMs", delete_after=5)
         elif f"<@!{self.bot.user.id}>" in word:
-            await ctx.send(":x: Your highlight word can't mention me", delete_after=5)  
+            await ctx.send(":x: Your highlight word can't mention me", delete_after=5)
         elif len(word) < 2:
             await ctx.send(":x: Your word must be at least 2 characters", delete_after=5)
         elif len(word) > 20:
