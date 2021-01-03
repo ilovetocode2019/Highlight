@@ -7,6 +7,7 @@ import re
 import typing
 import dateparser
 import humanize
+import logging
 
 class Confirm(menus.Menu):
     def __init__(self, msg):
@@ -43,6 +44,8 @@ class TimeConverter(commands.Converter):
             raise commands.BadArgument("Failed to parse time")
         return time
 
+log = logging.getLogger("cogs.highlight")
+
 class Highlight(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -70,6 +73,7 @@ class Highlight(commands.Cog):
     async def send_highlight(self, message, row):
         # Somehow the guild isn't chunked
         if not message.guild.chunked:
+            log.warning(f"Guild ID {message.guild.id} is not chunked. Chunking guild now.")
             await message.guild.chunk(cache=True)
 
         member = message.guild.get_member(int(row["userid"]))
@@ -135,8 +139,10 @@ class Highlight(commands.Cog):
 
         em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
-        # Send the message
-        await member.send(embed=em)
+        try:
+            await member.send(embed=em)
+        except discord.Forbidden:
+            log.warning(f"Couldn't send highlight message to user ID {member.id}")
 
     def word_in_message(self, word, message):
         # Get the word in the message
