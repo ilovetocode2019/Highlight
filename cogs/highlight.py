@@ -89,7 +89,7 @@ class Highlight(commands.Cog):
         settings_row = await self.bot.db.fetchrow(query, member.id)
 
         if not settings_row:
-            settings_row = {"userid": user.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
+            settings_row = {"userid": member.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
 
         # Make sure the user has not disabled highlight, can view the channel, has not blocked the author or channel, is not the author
         if settings_row["disabled"]:
