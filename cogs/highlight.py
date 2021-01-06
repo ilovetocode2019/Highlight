@@ -51,6 +51,9 @@ class Highlight(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    def cog_check(self, ctx):
+        return ctx.guild
+
     @commands.Cog.listener("on_message")
     async def on_message(self, message):
         if message.author.bot or not message.guild:
@@ -172,7 +175,6 @@ class Highlight(commands.Cog):
             else:
                 raise
 
-    @commands.guild_only()
     @commands.command(name="add", description="Add a highlight word")
     async def add(self, ctx, *, word):
         word = word.lower()
@@ -205,7 +207,6 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.guild_only()
     @commands.command(name="remove", description="Remove a highlight word")
     async def remove(self, ctx, *, word):
         query = """DELETE FROM words
@@ -223,7 +224,6 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.guild_only()
     @commands.command(name="clear", description="Clear your highlight list")
     async def clear(self, ctx):
         result = await Confirm("Are you sure you want to clear your word list for this server?").prompt(ctx)
@@ -242,7 +242,6 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.guild_only()
     @commands.command(name="transfer", description="Transfer your words from another server", usage="<server id>", aliases=["import"])
     async def transfer(self, ctx, guild_id: int):
         query = """SELECT *
@@ -273,7 +272,6 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.guild_only()
     @commands.command(name="show", description="View your words for the current server", aliases=["words", "list"])
     async def show(self, ctx):
         query = """SELECT * FROM words
