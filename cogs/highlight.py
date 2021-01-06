@@ -52,7 +52,7 @@ class Highlight(commands.Cog):
 
     @commands.Cog.listener("on_message")
     async def on_message(self, message):
-        if message.author.bot:
+        if message.author.bot or not message.guild:
             return
 
         sent = []
