@@ -57,15 +57,15 @@ class Highlight(commands.Cog):
             return
 
         sent = []
-        for word in self.bot.cached_words:
-            if self.word_in_message(word, message.content.lower()):
+        for cached_word in self.bot.cached_words:
+            if self.word_in_message(cached_word, message.content.lower()):
                 query = """SELECT *
                            FROM words
-                           WHERE words.word=$1 AND words.guild_id=$2;
+                           WHERE words.guild_id=$1 AND words.word=$2;
                         """
-                rows = await self.bot.db.fetch(query, word, message.guild.id)
+                words = await self.bot.db.fetch(query, message.guild.id, cached_word)
 
-                if not rows:
+                if not words:
                     continue
 
                 # Somehow the guild isn't chunked
@@ -73,75 +73,68 @@ class Highlight(commands.Cog):
                     log.warning("Guild ID %s is not chunked. Chunking guild now.", message.guild.id)
                     await message.guild.chunk(cache=True)
 
-                for row in rows:
-                    if row["user_id"] not in sent:
-                        self.bot.loop.create_task(self.send_highlight(message, row))
-                        sent.append(row["user_id"])
+                for word in words:
+                    if word["user_id"] not in sent:
+                        self.bot.loop.create_task(self.send_highlight(message, word))
+                        sent.append(word["user_id"])
 
-    async def send_highlight(self, message, row):
-        member = message.guild.get_member(row["user_id"])
-        # Member probably left
+    async def send_highlight(self, message, word):
+        member = message.guild.get_member(word["user_id"])
         if not member:
-            log.info("Received a highlight for user ID %s (guild ID %s) but member is None. Member probably left guild.", row["user_id"], row["guild_id"])
+            log.info("Received a highlight for user ID %s (guild ID %s) but member is None. Member probably left guild.", word["user_id"], word["guild_id"])
             return
 
-        # Get the settings for the user
+        # Get user settings
         query = """SELECT *
                    FROM settings
                    WHERE settings.user_id=$1;
                 """
-        settings_row = await self.bot.db.fetchrow(query, member.id)
+        settings = await self.bot.db.fetchrow(query, member.id)
+        if not settings:
+            settings = {"user_id": member.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
+        timezone = settings["timezone"]
 
-        if not settings_row:
-            settings_row = {"user_id": member.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
-
-        # Make sure the user has not disabled highlight, can view the channel, has not blocked the author or channel, is not the author
-        if settings_row["disabled"]:
+        # Make sure all the checks for highlighting pass
+        if member.id == message.author.id or settings["disabled"]:
             return
         if member.id not in [member.id for member in message.channel.members]:
             return
-        if message.channel.id in settings_row["blocked_channels"] or message.author.id in settings_row["blocked_users"]:
-            return
-        if member.id == message.author.id:
+        if message.channel.id in settings["blocked_channels"] or message.author.id in settings["blocked_users"]:
             return
 
         utc = ""
-        if settings_row["timezone"] == 0:
+        if timezone == 0:
             utc = " UTC"
 
-        # Create the embed for the highlight
+        # Base embed
         em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n", color=discord.Color.blurple())
         em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-        em.description += "\n\n".join([f"> {x.author} at {(x.created_at+datetime.timedelta(hours=settings_row['timezone'])).strftime(f'%H:%M:%S{utc}')}: {x.content}" for x in reversed((await message.channel.history(limit=3).flatten())[1:])])
+        em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
-        # Get the position of the word in the message
-        span = re.search(row["word"], message.content.lower()).span()
+        history = await message.channel.history(limit=3, before=message).flatten()
+        messages = []
+        for ms in reversed(history):
+            time = (ms.created_at+datetime.timedelta(hours=timezone)).strftime("%H:%M:%S")
+            messages.append(f"> {ms.author} at {time}{utc}: {ms.content}")
+        em.description += "\n\n".join(messages)
 
-        msg = discord.utils.escape_markdown(message.content[:span[0]])
-        msg += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
-        msg += discord.utils.escape_markdown(message.content[span[1]:])
+        # Add trigger message to the embed
+        span = re.search(word["word"], message.content.lower()).span()
+        content = discord.utils.escape_markdown(message.content[:span[0]])
+        content += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
+        content += discord.utils.escape_markdown(message.content[span[1]:])
 
-        # Add the trigger message to the embed
-        em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=settings_row['timezone'])).strftime(f'%H:%M:%S{utc}')}: {msg}"
+        em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=timezone)).strftime('%H:%M:%S')}{utc}: {content}"
 
-        def check(ms):
-            return ms.channel.id == message.channel.id
-
+        # Check for new messages to the embed
         try:
-            # Wait for 10 seconds to see if any new messages should be added to the embed
-            ms = await self.bot.wait_for("message", check=check, timeout=10)
-
-            # Don't trigger the highlight if the user replies to the tigger message
+            ms = await self.bot.wait_for("message", check=lambda ms: ms.channel == message.channel, timeout=10)
             if ms.author.id == member.id:
                 return
 
-            # Add the new message to the embed
-            em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=settings_row['timezone'])).strftime(f'%H:%M:%S{utc}')}: {ms.content}"
-
+            em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=timezone)).strftime('%H:%M:%S')}{utc}: {ms.content}"
         except asyncio.TimeoutError:
             pass
-
-        em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
 
         try:
             await member.send(embed=em)
