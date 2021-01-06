@@ -1,10 +1,11 @@
 import discord
 from discord.ext import commands, menus
 
-import datetime
 import asyncio
-import re
+import asyncpg
 import typing
+import re
+import datetime
 import dateparser
 import humanize
 import logging
@@ -193,23 +194,19 @@ class Highlight(commands.Cog):
         elif len(word) > 20:
             await ctx.send(":x: Your word cannot be bigger than 20 characters", delete_after=5)
 
-        else:
-            query = """SELECT COUNT(*)
-                       FROM words
-                       WHERE words.user_id=$1 AND words.guild_id=$2 AND words.word=$3;
+
+        try:
+            query = """INSERT INTO words (user_id, guild_id, word)
+                        VALUES ($1, $2, $3);
                     """
-            if (await self.bot.db.fetchrow(query, ctx.author.id, ctx.guild.id, word))["count"]:
-                await ctx.send(":x: You already have that word", delete_after=5)
-            else:
-                query = """INSERT INTO words (user_id, guild_id, word)
-                           VALUES ($1, $2, $3);
-                        """
-                await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
+            await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
-                if word not in self.bot.cached_words:
-                    self.bot.cached_words.append(word)
+            if word not in self.bot.cached_words:
+                self.bot.cached_words.append(word)
 
-                await ctx.send(":white_check_mark: Words updated", delete_after=5)
+            await ctx.send(":white_check_mark: Words updated", delete_after=5)
+        except asyncpg.UniqueViolationError:
+            await ctx.send(":x: You already have this word", delete_after=5)
 
         try:
            await ctx.message.delete()

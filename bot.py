@@ -74,6 +74,8 @@ class HighlightBot(commands.Bot):
                    extra jsonb DEFAULT ('{}'::jsonb),
                    created_at TIMESTAMP DEFAULT (now() at time zone 'utc')
                    );
+
+                   CREATE UNIQUE INDEX IF NOT EXISTS unique_words_index ON words (user_id, guild_id, word);
                 """
         await self.db.execute(query)
 
