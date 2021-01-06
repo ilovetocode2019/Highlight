@@ -194,7 +194,6 @@ class Highlight(commands.Cog):
         elif len(word) > 20:
             await ctx.send(":x: Your word cannot be bigger than 20 characters", delete_after=5)
 
-
         try:
             query = """INSERT INTO words (user_id, guild_id, word)
                         VALUES ($1, $2, $3);
@@ -354,7 +353,7 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="unblock", description="Unblock a user or channel", usage="<use or channel>", aliases=["unmute"])
+    @commands.command(name="unblock", description="Unblock a user or channel", usage="<user or channel>", aliases=["unmute"])
     async def unblock(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
