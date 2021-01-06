@@ -285,7 +285,7 @@ class Highlight(commands.Cog):
             pass
 
     @commands.guild_only()
-    @commands.command(name="show", description="View your words for the current server")
+    @commands.command(name="show", description="View your words for the current server", aliases=["words", "list"])
     async def show(self, ctx):
         query = """SELECT * FROM words
                    WHERE words.user_id=$1 AND words.guild_id=$2;
