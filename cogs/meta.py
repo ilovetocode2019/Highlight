@@ -7,7 +7,7 @@ import datetime
 import humanize
 
 class HighlightHelpCommand(commands.HelpCommand):
-    bottom_text = '\n\nKey: `<required> [optional]`. **Remove <> and [] when using the command**. \nFor more help join the [support server]({0}).'
+    bottom_text = "\n\nKey: `<required> [optional]`. **Remove <> and [] when using the command**. \nFor more help join the [support server]({0})."
 
     async def send_bot_help(self, mapping):
         ctx = self.context
@@ -19,6 +19,8 @@ class HighlightHelpCommand(commands.HelpCommand):
         commands = await self.filter_commands(bot.commands)
         for command in commands:
             em.description += f"`{self.get_command_signature(command)}` {f'- {command.description}' if command.description else ''}\n"
+
+        em.description += "\n\nKey: `<required> [optional]`. **Remove <> and [] when using the command**."
 
         await ctx.send(embed=em)
 
@@ -32,6 +34,8 @@ class HighlightHelpCommand(commands.HelpCommand):
         commands = await self.filter_commands(cog.get_commands())
         for command in commands:
             em.description += f"`{self.get_command_signature(command)}` {f'- {command.description}' if command.description else ''}\n"
+
+        em.description += "\n\nKey: `<required> [optional]`. **Remove <> and [] when using the command**."
 
         await ctx.send(embed=em)
 

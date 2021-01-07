@@ -56,7 +56,9 @@ class Highlight(commands.Cog):
 
     @commands.Cog.listener("on_message")
     async def on_message(self, message):
-        if message.author.bot or not message.guild:
+        if not message.guild:
+            return
+        if message.author.bot:
             return
 
         sent = []
@@ -67,13 +69,12 @@ class Highlight(commands.Cog):
                            WHERE words.guild_id=$1 AND words.word=$2;
                         """
                 words = await self.bot.db.fetch(query, message.guild.id, cached_word)
-
                 if not words:
                     continue
 
                 # Somehow the guild isn't chunked
                 if not message.guild.chunked:
-                    log.warning("Guild ID %s is not chunked. Chunking guild now.", message.guild.id)
+                    log.warning("Guild ID %s is somehow not chunked. Chunking it now.", message.guild.id)
                     await message.guild.chunk(cache=True)
 
                 for word in words:
@@ -84,7 +85,7 @@ class Highlight(commands.Cog):
     async def send_highlight(self, message, word):
         member = message.guild.get_member(word["user_id"])
         if not member:
-            log.info("Received a highlight for user ID %s (guild ID %s) but member is None. Member probably left guild.", word["user_id"], word["guild_id"])
+            log.info("Received a highlight for user ID %s (guild ID %s) but member is None", word["user_id"], word["guild_id"])
             return
 
         # Get user settings
@@ -96,8 +97,9 @@ class Highlight(commands.Cog):
         if not settings:
             settings = {"user_id": member.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
         timezone = settings["timezone"]
+        word = word["word"]
 
-        # Make sure all the checks for highlighting pass
+        # Run various checks
         if member.id == message.author.id or settings["disabled"]:
             return
         if member.id not in [member.id for member in message.channel.members]:
@@ -110,24 +112,29 @@ class Highlight(commands.Cog):
             utc = " UTC"
 
         # Base embed
-        em = discord.Embed(timestamp=datetime.datetime.now(), description=f"You got highlighted in {message.channel.mention}\n\n", color=discord.Color.blurple())
+        description = f"In {message.channel.mention} for `{discord.utils.escape_markdown(message.guild.name)}` you were highlighted with the word **{discord.utils.escape_markdown(word)}**\n\n"
+        em = discord.Embed(description=description, timestamp=message.created_at, color=discord.Color.blurple())
         em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
-        em.add_field(name="Jump", value=f"[Click]({message.jump_url})")
+        em.add_field(name="Jump", value=f"[Jump!]({message.jump_url})")
+        em.set_footer(text="Triggered")
 
         history = await message.channel.history(limit=3, before=message).flatten()
         messages = []
         for ms in reversed(history):
+            content = f"{ms.content[:50]}{'...' if len(ms.content) > 50 else ''}"
             time = (ms.created_at+datetime.timedelta(hours=timezone)).strftime("%H:%M:%S")
-            messages.append(f"> {ms.author} at {time}{utc}: {ms.content}")
-        em.description += "\n\n".join(messages)
+            messages.append(f"`{time}{utc}` {discord.utils.escape_markdown(str(ms.author))}: {discord.utils.escape_markdown(content)}")
+        em.description += "\n".join(messages)
 
         # Add trigger message to the embed
-        span = re.search(word["word"], message.content.lower()).span()
+        span = re.search(word, message.content.lower()).span()
         content = discord.utils.escape_markdown(message.content[:span[0]])
-        content += f"**{discord.utils.escape_markdown(message.content[span[0]:span[1]])}**"
+        content += f"**{discord.utils.escape_markdown(word)}**"
         content += discord.utils.escape_markdown(message.content[span[1]:])
 
-        em.description += f"\n\n> {message.author} at {(message.created_at+datetime.timedelta(hours=timezone)).strftime('%H:%M:%S')}{utc}: {content}"
+        content = f"{content[:50]}{'...' if len(content) > 50 else ''}"
+        time = (message.created_at+datetime.timedelta(hours=timezone)).strftime("%H:%M:%S")
+        em.description += f"\n> `{time}{utc}` {discord.utils.escape_markdown(str(message.author))}: {content}"
 
         # Check for new messages to the embed
         try:
@@ -135,14 +142,16 @@ class Highlight(commands.Cog):
             if ms.author.id == member.id:
                 return
 
-            em.description += f"\n\n> {ms.author} at {(ms.created_at+datetime.timedelta(hours=timezone)).strftime('%H:%M:%S')}{utc}: {ms.content}"
+            content = f"{ms.content[:50]}{'...' if len(ms.content) > 50 else ''}"
+            time = (ms.created_at+datetime.timedelta(hours=timezone)).strftime("%H:%M:%S")
+            em.description += f"\n`{time}{utc}` {discord.utils.escape_markdown(str(ms.author))}: {discord.utils.escape_markdown(content)}"
         except asyncio.TimeoutError:
             pass
 
         try:
             await member.send(embed=em)
         except discord.Forbidden:
-            log.warning("Forbidden to send highlight message to user ID %s. DMs probably disabled.", member.id)
+            log.warning("Forbidden to send highlight message to user ID %s", member.id)
 
     def word_in_message(self, word, message):
         # Get the word in the message
@@ -198,7 +207,7 @@ class Highlight(commands.Cog):
             if word not in self.bot.cached_words:
                 self.bot.cached_words.append(word)
 
-            await ctx.send(":white_check_mark: Words updated", delete_after=5)
+            await ctx.send(f":white_check_mark: Added `{word}` to your highlight list", delete_after=5)
         except asyncpg.UniqueViolationError:
             await ctx.send(":x: You already have this word", delete_after=5)
 
@@ -217,7 +226,7 @@ class Highlight(commands.Cog):
         if result == "DELETE 0":
             await ctx.send(":x: This word is not registered", delete_after=5)
         else:
-            await ctx.send(":white_check_mark: Words updated", delete_after=5)
+            await ctx.send(f":white_check_mark: Removed `{word}` from your highlight list", delete_after=5)
 
         try:
            await ctx.message.delete()
@@ -226,17 +235,13 @@ class Highlight(commands.Cog):
 
     @commands.command(name="clear", description="Clear your highlight list")
     async def clear(self, ctx):
-        result = await Confirm("Are you sure you want to clear your word list for this server?").prompt(ctx)
+        query = """DELETE FROM words
+                    WHERE words.user_id=$1 AND words.guild_id=$2;
+                """
+        result = await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
 
-        if result:
-            query = """DELETE FROM words
-                       WHERE words.user_id=$1 AND words.guild_id=$2;
-                    """
-            await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
+        await ctx.send(f":white_check_mark: Your highlight list has been cleared", delete_after=5)
 
-            await ctx.send(":white_check_mark: Your highlight list has been cleared", delete_after=5)
-        else:
-            await ctx.send(":x: Aborting", delete_after=5)
         try:
             await ctx.message.delete()
         except discord.HTTPException:
@@ -252,8 +257,8 @@ class Highlight(commands.Cog):
 
         to_transfer = []
         for word in words:
-            if word["guild_id"] == guild_id and word["word"] not in [x["word"] for x in words if x["guild_id"] == ctx.guild.id]:
-                to_transfer.append({"user_id": ctx.author.id, "guild_id": ctx.guild.id, "word": word["word"]})
+            if word["guild_id"] == guild_id and word not in [x["word"] for x in words if x["guild_id"] == ctx.guild.id]:
+                to_transfer.append({"user_id": ctx.author.id, "guild_id": ctx.guild.id, "word": "word"})
 
         if not to_transfer:
             await ctx.send(":x: You have no words to transfer from this server", delete_after=5)
@@ -315,7 +320,7 @@ class Highlight(commands.Cog):
                                WHERE settings.user_id=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_users"], ctx.author.id)
-                    await ctx.send(f":no_entry_sign: Blocked {user.display_name}", delete_after=5)
+                    await ctx.send(f":no_entry_sign: Blocked `{user.display_name}`", delete_after=5)
             else:
                 query = """INSERT INTO settings (user_id, disabled, timezone, blocked_users, blocked_channels)
                            VALUES ($1, $2, $3, $4, $5);
@@ -364,7 +369,7 @@ class Highlight(commands.Cog):
                                WHERE settings.user_id=$2;
                             """
                     await self.bot.db.execute(query, settings["blocked_users"], ctx.author.id)
-                    await ctx.send(f":white_check_mark: Unblocked {user.display_name}", delete_after=5)
+                    await ctx.send(f":white_check_mark: Unblocked `{user.display_name}`", delete_after=5)
             else:
                 await ctx.send(":x: This user is not blocked", delete_after=5)
 
@@ -425,15 +430,13 @@ class Highlight(commands.Cog):
 
     @blocked.command(name="clear", description="Clear your blocked list")
     async def blocked_clear(self, ctx):
-        result = await Confirm("Are you sure you want to do this? I will forget all your blocked users and channels").prompt(ctx)
-        if result:
-            query = """UPDATE settings
-                       SET blocked_users=$1, blocked_channels=$2
-                       WHERE settings.user_id=$3;
-                    """
-            await self.bot.db.execute(query, [], [], ctx.author.id)
+        query = """UPDATE settings
+                   SET blocked_users=$1, blocked_channels=$2
+                   WHERE settings.user_id=$3;
+                """
+        await self.bot.db.execute(query, [], [], ctx.author.id)
 
-            await ctx.send(":white_check_mark: Your blocked list has been cleared")
+        await ctx.send(f":white_check_mark: Your blocked list has been cleared")
 
         try:
             await ctx.message.delete()
@@ -472,7 +475,7 @@ class Highlight(commands.Cog):
         if time:
             await self.bot.get_cog("Timers").create_timer(ctx.author.id, "disabled", time, {})
 
-        await ctx.send(f":white_check_mark: Highlight has been disabled {f'for {humanize.naturaldelta(time-datetime.datetime.utcnow())}' if time else ''}", delete_after=5)
+        await ctx.send(f":white_check_mark: Highlight has been disabled {f'`for {humanize.naturaldelta(time-datetime.datetime.utcnow())}`' if time else ''}", delete_after=5)
 
         try:
             await ctx.message.delete()
@@ -489,7 +492,7 @@ class Highlight(commands.Cog):
                     """
 
             await self.bot.db.execute(query, ctx.author.id, False, timezone, [], [])
-            await ctx.send(":white_check_mark: Timezone saved", delete_after=5)
+            await ctx.send(f":white_check_mark: Timezone set to `{timezone}`", delete_after=5)
 
         else:
             query = """SELECT *
@@ -507,29 +510,6 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="forget", description="Delete all your information")
-    async def forget(self, ctx):
-        result = await Confirm("Are you sure you want to do this? I will forget your words, blocked list, and settings").prompt(ctx)
-        if result:
-            query = """DELETE FROM words
-                       WHERE words.user_id=$1;
-                    """
-            await self.bot.db.execute(query, ctx.author.id)
-
-            query = """DELETE FROM settings
-                       WHERE settings.user_id=$1;
-                    """
-            await self.bot.db.execute(query, ctx.author.id)
-
-            await ctx.send(":white_check_mark: Successfully deleted your information", delete_after=5)
-        else:
-            await ctx.send(":x: Aborting", delete_after=5)
-
-        try:
-            await ctx.message.delete()
-        except discord.HTTPException:
-            pass
-
     @commands.Cog.listener()
     async def on_disabled_complete(self, timer):
         query = """INSERT INTO settings (user_id, disabled, timezone)
@@ -538,7 +518,6 @@ class Highlight(commands.Cog):
                    DO UPDATE SET disabled=$2;
                 """
         await self.bot.db.execute(query, timer["user_id"], False, 0)
-
 
 def setup(bot):
     bot.add_cog(Highlight(bot))
