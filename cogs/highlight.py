@@ -226,22 +226,22 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="transfer", description="Transfer your words from another server", usage="<server id>", aliases=["import"])
+    @commands.command(name="import", description="Import your words from another server", usage="<server id>", aliases=["transfer"])
     async def transfer(self, ctx, guild_id: int):
         query = """SELECT *
                    FROM words
                    WHERE words.user_id=$1 AND (words.guild_id=$2 OR words.guild_id=$3);
                 """
         words = await self.bot.db.fetch(query, ctx.author.id, guild_id, ctx.guild.id)
+        words = [dict(word) for word in words]
 
         to_transfer = []
         for word in words:
-            if word["guild_id"] == guild_id and word not in [x["word"] for x in words if x["guild_id"] == ctx.guild.id]:
-                to_transfer.append({"user_id": ctx.author.id, "guild_id": ctx.guild.id, "word": "word"})
+            if word["guild_id"] == guild_id and word["word"] not in [word["word"] for word in words if word["guild_id"] == ctx.guild.id]:
+                word["guild_id"] = ctx.guild.id
+                to_transfer.append(word)
 
-        if not to_transfer:
-            await ctx.send(":x: You have no words to transfer from this server", delete_after=5)
-        else:
+        if to_transfer:
             query = """INSERT INTO words (user_id, guild_id, word)
                        SELECT x.user_id, x.guild_id, x.word
                        FROM jsonb_to_recordset($1::jsonb) AS
@@ -250,6 +250,8 @@ class Highlight(commands.Cog):
 
             await self.bot.db.execute(query, to_transfer)
             await ctx.send(":white_check_mark: Your highlight list has been imported", delete_after=5)
+        else:
+            await ctx.send(":x: You have no words to transfer from this server", delete_after=5)
 
         try:
             await ctx.message.delete()
