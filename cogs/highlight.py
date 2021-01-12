@@ -10,29 +10,6 @@ import dateparser
 import humanize
 import logging
 
-class Confirm(menus.Menu):
-    def __init__(self, msg):
-        super().__init__(timeout=30.0, delete_message_after=True)
-        self.msg = msg
-        self.result = None
-
-    async def send_initial_message(self, ctx, channel):
-        return await channel.send(self.msg)
-
-    @menus.button("\N{WHITE HEAVY CHECK MARK}")
-    async def do_confirm(self, payload):
-        self.result = True
-        self.stop()
-
-    @menus.button("\N{CROSS MARK}")
-    async def do_deny(self, payload):
-        self.result = False
-        self.stop()
-
-    async def prompt(self, ctx):
-        await self.start(ctx, wait=True)
-        return self.result
-
 class TimeConverter(commands.Converter):
     async def convert(self, ctx, arg):
         try:
@@ -54,7 +31,7 @@ class Highlight(commands.Cog):
     def cog_check(self, ctx):
         return ctx.guild
 
-    @commands.Cog.listener("on_message")
+    @commands.Cog.listener()
     async def on_message(self, message):
         if not message.guild:
             return
@@ -118,13 +95,16 @@ class Highlight(commands.Cog):
         em.add_field(name="Jump", value=f"[Jump!]({message.jump_url})")
         em.set_footer(text="Triggered")
 
-        history = await message.channel.history(limit=3, before=message).flatten()
-        messages = []
-        for ms in reversed(history):
-            content = f"{ms.content[:50]}{'...' if len(ms.content) > 50 else ''}"
-            time = (ms.created_at+datetime.timedelta(hours=timezone)).strftime("%H:%M:%S")
-            messages.append(f"`{time}{utc}` {discord.utils.escape_markdown(str(ms.author))}: {discord.utils.escape_markdown(content)}")
-        em.description += "\n".join(messages)
+        try:
+            history = await message.channel.history(limit=3, before=message).flatten()
+            messages = []
+            for ms in reversed(history):
+                content = f"{ms.content[:50]}{'...' if len(ms.content) > 50 else ''}"
+                time = (ms.created_at+datetime.timedelta(hours=timezone)).strftime("%H:%M:%S")
+                messages.append(f"`{time}{utc}` {discord.utils.escape_markdown(str(ms.author))}: {discord.utils.escape_markdown(content)}")
+            em.description += "\n".join(messages)
+        except discord.HTTPException:
+            pass
 
         # Add trigger message to the embed
         span = re.search(word, message.content.lower()).span()
@@ -200,13 +180,12 @@ class Highlight(commands.Cog):
 
         try:
             query = """INSERT INTO words (user_id, guild_id, word)
-                        VALUES ($1, $2, $3);
+                       VALUES ($1, $2, $3);
                     """
             await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
             if word not in self.bot.cached_words:
                 self.bot.cached_words.append(word)
-
             await ctx.send(f":white_check_mark: Added `{word}` to your highlight list", delete_after=5)
         except asyncpg.UniqueViolationError:
             await ctx.send(":x: You already have this word", delete_after=5)
