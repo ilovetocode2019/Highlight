@@ -177,18 +177,18 @@ class Highlight(commands.Cog):
             await ctx.send(":x: Your word must be at least 2 characters", delete_after=5)
         elif len(word) > 20:
             await ctx.send(":x: Your word cannot be bigger than 20 characters", delete_after=5)
+        else:
+            try:
+                query = """INSERT INTO words (user_id, guild_id, word)
+                        VALUES ($1, $2, $3);
+                        """
+                await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
-        try:
-            query = """INSERT INTO words (user_id, guild_id, word)
-                       VALUES ($1, $2, $3);
-                    """
-            await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
-
-            if word not in self.bot.cached_words:
-                self.bot.cached_words.append(word)
-            await ctx.send(f":white_check_mark: Added `{word}` to your highlight list", delete_after=5)
-        except asyncpg.UniqueViolationError:
-            await ctx.send(":x: You already have this word", delete_after=5)
+                if word not in self.bot.cached_words:
+                    self.bot.cached_words.append(word)
+                await ctx.send(f":white_check_mark: Added `{word}` to your highlight list", delete_after=5)
+            except asyncpg.UniqueViolationError:
+                await ctx.send(":x: You already have this word", delete_after=5)
 
         try:
            await ctx.message.delete()
