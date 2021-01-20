@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands, menus
+from discord.ext import commands, menus, tasks
 
 import asyncio
 import asyncpg
@@ -27,6 +27,14 @@ log = logging.getLogger("cogs.highlight")
 class Highlight(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self._highlight_batch = []
+        self._batch_lock = asyncio.Lock(loop=bot.loop)
+
+        self.bulk_insert_loop.add_exception_type(asyncpg.PostgresConnectionError)
+        self.bulk_insert_loop.start()
+
+    def cog_unload(self):
+        self.bulk_insert_loop.stop()
 
     def cog_check(self, ctx):
         return ctx.guild
@@ -65,7 +73,6 @@ class Highlight(commands.Cog):
             log.info("Received a highlight for user ID %s (guild ID %s) but member is None", word["user_id"], word["guild_id"])
             return
 
-        # Get user settings
         query = """SELECT *
                    FROM settings
                    WHERE settings.user_id=$1;
@@ -74,9 +81,7 @@ class Highlight(commands.Cog):
         if not settings:
             settings = {"user_id": member.id, "disabled": False, "timezone": 0, "blocked_users": [], "blocked_channels": []}
         timezone = settings["timezone"]
-        word = word["word"]
 
-        # Run various checks
         if member.id == message.author.id or settings["disabled"]:
             return
         if member.id not in [member.id for member in message.channel.members]:
@@ -88,8 +93,7 @@ class Highlight(commands.Cog):
         if timezone == 0:
             utc = " UTC"
 
-        # Base embed
-        description = f"In {message.channel.mention} for `{discord.utils.escape_markdown(message.guild.name)}` you were highlighted with the word **{discord.utils.escape_markdown(word)}**\n\n"
+        description = f"In {message.channel.mention} for `{discord.utils.escape_markdown(message.guild.name)}` you were highlighted with the word **{discord.utils.escape_markdown(word['word'])}**\n\n"
         em = discord.Embed(description=description, timestamp=message.created_at, color=discord.Color.blurple())
         em.set_author(name=message.author.display_name, icon_url=message.author.avatar_url)
         em.add_field(name="Jump", value=f"[Jump!]({message.jump_url})")
@@ -106,17 +110,16 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-        # Add trigger message to the embed
-        span = re.search(word, message.content.lower()).span()
+        span = re.search(word["word"], message.content.lower()).span()
         content = discord.utils.escape_markdown(message.content[:span[0]])
-        content += f"**{discord.utils.escape_markdown(word)}**"
+        content += f"**{discord.utils.escape_markdown(word['word'])}**"
         content += discord.utils.escape_markdown(message.content[span[1]:])
 
         content = f"{content[:50]}{'...' if len(content) > 50 else ''}"
         time = (message.created_at+datetime.timedelta(hours=timezone)).strftime("%H:%M:%S")
         em.description += f"\n> `{time}{utc}` {discord.utils.escape_markdown(str(message.author))}: {content}"
 
-        # Check for new messages to the embed
+        # Check for anything new to add
         try:
             ms = await self.bot.wait_for("message", check=lambda ms: ms.channel == message.channel, timeout=10)
             if ms.author.id == member.id:
@@ -128,6 +131,18 @@ class Highlight(commands.Cog):
         except asyncio.TimeoutError:
             pass
 
+        self._highlight_batch.append(
+            {
+                "guild_id": message.guild.id,
+                "channel_id": message.channel.id,
+                "message_id": message.id,
+                "author_id": message.author.id,
+                "user_id": word["user_id"],
+                "word": word["word"],
+                "invoked_at": message.created_at.isoformat()
+            }
+        )
+
         try:
             await member.send(embed=em)
         except discord.Forbidden:
@@ -137,7 +152,7 @@ class Highlight(commands.Cog):
         # Get the word in the message
         match = re.search(word, message)
 
-        # Return False if the word is not in the message
+        # Word isn't the message so, reurn False
         if not match:
             return False
 
@@ -147,13 +162,14 @@ class Highlight(commands.Cog):
         end = span[1]
 
         if start >= 0:
-            # If the charecter before the word is not a space, return False
+            # If the charecter before the word is not a space, then the word techincally isn't in the message
             if message[start] != " ":
                 return False
 
         return True
 
     async def can_dm(self, user):
+        # Attempt to check if the user can be be sen DMs by sending an empy message
         try:
             await user.send()
         except discord.HTTPException as exc:
@@ -499,6 +515,28 @@ class Highlight(commands.Cog):
                    DO UPDATE SET disabled=$2;
                 """
         await self.bot.db.execute(query, timer["user_id"], False, 0)
+
+    async def bulk_insert(self):
+        query = """INSERT INTO highlights (guild_id, channel_id, message_id, author_id, user_id, word, invoked_at)
+                   SELECT x.guild_id, x.channel_id, x.message_id, x.author_id, x.user_id, x.word, x.invoked_at
+                   FROM jsonb_to_recordset($1::jsonb) AS
+                   x(guild_id BIGINT, channel_id BIGINT, message_id BIGINT, author_id BIGINT, user_id BIGINT, word TEXT, invoked_at TEXT)
+                """
+        if self._highlight_batch:
+            await self.bot.db.execute(query, self._highlight_batch)
+            total = len(self._highlight_batch)
+            self._highlight_batch.clear()
+
+    @tasks.loop(seconds=20)
+    async def bulk_insert_loop(self):
+        async with self._batch_lock:
+            await self.bulk_insert()
+
+    @bulk_insert_loop.before_loop
+    async def before_bulk_insert_loop(self):
+        log.info("Waiting to start bulk insert loop")
+        await self.bot.wait_until_ready()
+        log.info("Starting bulk insert loop")
 
 def setup(bot):
     bot.add_cog(Highlight(bot))
