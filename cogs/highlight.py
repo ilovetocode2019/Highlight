@@ -507,6 +507,15 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
+    @commands.command(name="stats", description="View stats about the bot")
+    async def stats(self, ctx):
+        highlights = await self.bot.db.fetch("SELECT * FROM highlights;")
+
+        em = discord.Embed(title="Highlight Stats", color=discord.Color.blurple())
+        em.add_field(name="Total Highlights", value=len(highlights))
+        em.add_field(name="Total Highlights Here", value=len([highlight for highlight in highlights if highlight["guild_id"] == ctx.guild.id]))
+        await ctx.send(embed=em)
+
     @commands.Cog.listener()
     async def on_disabled_complete(self, timer):
         query = """INSERT INTO settings (user_id, disabled, timezone)
