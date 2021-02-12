@@ -1,6 +1,8 @@
 # Highlight
 
-A Discord bot that DMs you when a highlight word is found in a chat. If you have questions or issues, feel free to join the [support server](https://discord.gg/eHxvStNJb7) on Discord.
+A Discord bot that notifies you through DMs when a highlight word is found in a channel.
+
+If you have questions or issues, feel free to join the [support server](https://discord.gg/eHxvStNJb7) on Discord.
 
 ## Features
 - DM notifications for highlight words
@@ -11,7 +13,7 @@ A Discord bot that DMs you when a highlight word is found in a chat. If you have
 
 ## Installation
 
-1. **Download the bot as a Git repository using `git`**
+1. **Download the bot as a Git repository**
 
 If you don't have Git installed you can [download it here](https://git-scm.com/downloads).
 
@@ -52,7 +54,7 @@ console = 12345678912345678 # Channel ID of where to log errors and outdated pac
 
 On Windows you can run `python bot.py` in the command line. On Linux/Mac you can run `python3 bot.py` in the terminal.
 
-You need to keep the command running for the bot to stay online. If you can't run this on your own machine, I recommend getting a cheap VPS, and running the bot with a process manager like systemd.
+You need to keep the command running for the bot to stay online. If you can't run this on your own machine, I recommend getting a cheap VPS, and running the bot with a process manager like [systemd](https://en.wikipedia.org/wiki/Systemd).
 
 If you are confused or need help, feel free to ask for help in the [support server](https://discord.gg/eHxvStNJb7).
 

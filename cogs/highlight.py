@@ -180,7 +180,7 @@ class Highlight(commands.Cog):
             else:
                 raise
 
-    @commands.command(name="add", description="Add a highlight word")
+    @commands.command(name="add", description="Add a word to your highlight list")
     async def add(self, ctx, *, word):
         word = word.lower()
         can_dm = await self.can_dm(ctx.author)
@@ -211,7 +211,7 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="remove", description="Remove a highlight word")
+    @commands.command(name="remove", description="Remove a word from your highlight list")
     async def remove(self, ctx, *, word):
         query = """DELETE FROM words
                    WHERE words.user_id=$1 AND words.guild_id=$2 AND words.word=$3;
@@ -242,7 +242,7 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="import", description="Import your words from another server", usage="<server id>", aliases=["transfer"])
+    @commands.command(name="import", description="Import words from another server", usage="<server id>", aliases=["transfer"])
     async def transfer(self, ctx, guild_id: int):
         query = """SELECT *
                    FROM words
@@ -274,7 +274,7 @@ class Highlight(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command(name="show", description="View your words for the current server", aliases=["words", "list"])
+    @commands.command(name="show", description="View your highlight list", aliases=["words", "list"])
     async def show(self, ctx):
         query = """SELECT * FROM words
                    WHERE words.user_id=$1 AND words.guild_id=$2;
