@@ -65,4 +65,4 @@ If you are confused or need help, feel free to ask for help in the [support serv
 - asyncpg
 - dateparser
 - humanize
-- git+https://github.com/Rapptz/discord-ext-menus
+- discord-ext-menus
