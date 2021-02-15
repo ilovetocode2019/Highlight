@@ -10,6 +10,88 @@ import dateparser
 import humanize
 import logging
 
+class DiscordConverter(commands.Converter):
+    def mention_or_id(self, arg):
+        match = re.match(r"([0-9]{15,21})$", arg) or re.match(r"<@!?([0-9]+)>$", arg)
+        return match
+
+    async def wait_for_ratelimit(self, ctx):
+        async with ctx.typing():
+            while ctx.bot.is_ws_ratelimited():
+                await asyncio.sleep(5)
+
+class MemberConverter(DiscordConverter):
+    async def convert(self, ctx, arg):
+        match = self.mention_or_id(arg)
+
+        # ID or mention
+        if match:
+            int_arg = int(match.group(1))
+
+            try:
+                member = await ctx.guild.fetch_member(int_arg)
+                return member
+            except discord.HTTPException:
+                pass
+
+        # Split username and discriminator
+        if len(arg) > 5 and arg[-5] == "#":
+            discriminator = arg[-4:]
+            username = arg[:-5]
+        else:
+            username = arg
+            discriminator = None
+
+        if ctx.bot.is_ws_ratelimited():
+            await self.wait_for_ratelimit(ctx)
+
+        # Query members by username
+        members = await ctx.guild.query_members(query=username, limit=100, cache=False)
+        for member in members:
+            if member.name == username and (not discriminator or member.discriminator == discriminator):
+                return member
+
+        # Query members by nickname
+        members = await ctx.guild.query_members(query=arg, limit=100, cache=False)
+        for member in members:
+            if member.nick == arg:
+                return member
+
+        raise commands.BadArgument(f"Member `{arg}` not found")
+
+class UserConverter(DiscordConverter):
+    async def convert(self, ctx, arg):
+        match = self.mention_or_id(arg)
+
+        # ID or mention
+        if match:
+            int_arg = int(match.group(1))
+
+            try:
+                member = await ctx.bot.fetch_user(int_arg)
+                return member
+            except discord.HTTPException:
+                pass
+
+        # Split username and discriminator
+        if len(arg) > 5 and arg[-5] == "#":
+            discriminator = arg[-4:]
+            username = arg[:-5]
+        else:
+            username = arg
+            discriminator = None
+
+        if ctx.bot.is_ws_ratelimited():
+            await self.wait_for_ratelimit(ctx)
+
+        # Query members by username
+        members = await ctx.guild.query_members(query=username, limit=100, cache=False)
+        for member in members:
+            if member.name == username and (not discriminator or member.discriminator == discriminator):
+                return member
+
+        raise commands.BadArgument(f"User `{arg}` not found")
+
 class TimeConverter(commands.Converter):
     async def convert(self, ctx, arg):
         try:
@@ -46,7 +128,7 @@ class Highlight(commands.Cog):
         if message.author.bot:
             return
 
-        sent = []
+        notifications = []
         for cached_word in self.bot.cached_words:
             if self.word_in_message(cached_word, message.content.lower()):
                 query = """SELECT *
@@ -54,21 +136,21 @@ class Highlight(commands.Cog):
                            WHERE words.guild_id=$1 AND words.word=$2;
                         """
                 words = await self.bot.db.fetch(query, message.guild.id, cached_word)
-                if not words:
-                    continue
-
-                # Somehow the guild isn't chunked
-                if not message.guild.chunked:
-                    log.warning("Guild ID %s is somehow not chunked. Chunking it now.", message.guild.id)
-                    await message.guild.chunk(cache=True)
 
                 for word in words:
-                    if word["user_id"] not in sent:
-                        self.bot.loop.create_task(self.send_highlight(message, word))
-                        sent.append(word["user_id"])
+                    if word["user_id"] not in [notification["user_id"] for notification in notifications]:
+                        notifications.append(word)
+
+        if not notifications:
+            return
+
+        tasks = [self.send_highlight(message, notification) for notification in notifications]
+        await message.guild.query_members(limit=100, user_ids=[notification["user_id"] for notification in notifications])
+        await asyncio.gather(*tasks)
 
     async def send_highlight(self, message, word):
         member = message.guild.get_member(word["user_id"])
+
         if not member:
             log.info("Received a highlight for user ID %s (guild ID %s) but member is None", word["user_id"], word["guild_id"])
             return
@@ -84,7 +166,7 @@ class Highlight(commands.Cog):
 
         if member.id == message.author.id or settings["disabled"]:
             return
-        if member.id not in [member.id for member in message.channel.members]:
+        if not message.channel.permissions_for(member).read_messages:
             return
         if message.channel.id in settings["blocked_channels"] or message.author.id in settings["blocked_users"]:
             return
@@ -299,14 +381,14 @@ class Highlight(commands.Cog):
             pass
 
     @commands.command(name="block", description="Block a user or channel", usage="<user or channel>", aliases=["ignore", "mute"])
-    async def block(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
+    async def block(self, ctx, *, user: typing.Union[UserConverter, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
                    WHERE settings.user_id=$1;
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
-        if isinstance(user, discord.User):
+        if isinstance(user, discord.User) or isinstance(user, discord.Member):
             if settings:
                 if user.id in settings["blocked_users"]:
                     await ctx.send(":x: This user is already blocked", delete_after=5)
@@ -347,14 +429,14 @@ class Highlight(commands.Cog):
             pass
 
     @commands.command(name="unblock", description="Unblock a user or channel", usage="<user or channel>", aliases=["unmute"])
-    async def unblock(self, ctx, *, user: typing.Union[discord.User, discord.TextChannel]):
+    async def unblock(self, ctx, *, user: typing.Union[UserConverter, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
                    WHERE settings.user_id=$1;
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
-        if isinstance(user, discord.User):
+        if isinstance(user, discord.User) or isinstance(user, discord.Member):
 
             if settings:
                 if user.id not in settings["blocked_users"]:
@@ -407,15 +489,19 @@ class Highlight(commands.Cog):
 
             users = []
             for user_id in settings["blocked_users"]:
-                user = self.bot.get_user(user_id)
-                users.append(user.mention if user else f"User with ID of {user_id}")
+                user = await self.bot.fetch_user(user_id)
+                if user:
+                    users.append(user.mention)
+
             if users:
                 em.add_field(name="Blocked Users", value="\n".join(users))
 
             channels = []
             for channel_id in settings["blocked_channels"]:
                 channel = self.bot.get_channel(channel_id)
-                channels.append(channel.mention if channel else f"Channel with ID of {channel_id}")
+                if channel:
+                    channels.append(channel.mention)
+
             if channels:
                 em.add_field(name="Blocked Channels", value="\n".join(channels))
 

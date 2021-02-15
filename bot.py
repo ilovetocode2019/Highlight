@@ -10,19 +10,14 @@ import aiohttp
 import config
 
 log = logging.getLogger("highlight")
-logging.basicConfig(
-    level = logging.INFO,
-    format = "(%(asctime)s) %(levelname)s %(message)s",
-    datefmt="%m/%d/%y - %H:%M:%S %Z" 
-)
+logging.basicConfig(level=logging.INFO, format="(%(asctime)s) %(levelname)s %(message)s", datefmt="%m/%d/%y - %H:%M:%S %Z")
 
 def get_prefix(client, message):
     return commands.when_mentioned(client, message)
 
 class HighlightBot(commands.Bot):
     def __init__(self):
-        intents = discord.Intents.all()
-        intents.presences = False
+        intents = discord.Intents(guilds=True, messages=True, reactions=True)
         super().__init__(command_prefix=get_prefix, description="I DM you if I find one of your words in the chat", intents=intents)
         self.loop.create_task(self.prepare_bot())
 
