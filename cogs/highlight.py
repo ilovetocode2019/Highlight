@@ -141,15 +141,11 @@ class Highlight(commands.Cog):
                     if word["user_id"] not in [notification["user_id"] for notification in notifications]:
                         notifications.append(word)
 
-        if not notifications:
-            return
-
         tasks = [self.send_highlight(message, notification) for notification in notifications]
-        await message.guild.query_members(limit=100, user_ids=[notification["user_id"] for notification in notifications])
         await asyncio.gather(*tasks)
 
     async def send_highlight(self, message, word):
-        member = message.guild.get_member(word["user_id"])
+        member = await message.guild.fetch_member(word["user_id"])
 
         if not member:
             log.info("Received a highlight for user ID %s (guild ID %s) but member is None", word["user_id"], word["guild_id"])
