@@ -145,11 +145,10 @@ class Highlight(commands.Cog):
         await asyncio.gather(*tasks)
 
     async def send_highlight(self, message, word):
-        member = await message.guild.fetch_member(word["user_id"])
-
-        if not member:
-            log.info("Received a highlight for user ID %s (guild ID %s) but member is None", word["user_id"], word["guild_id"])
-            return
+        try:
+            member = await message.guild.fetch_member(word["user_id"])
+        except discord.NotFound:
+            log.info("Received a highlight for user ID %s (guild ID %s) but member could not be fetched", word["user_id"], word["guild_id"])
 
         query = """SELECT *
                    FROM settings
