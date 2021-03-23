@@ -128,23 +128,36 @@ class Highlight(commands.Cog):
         if message.author.bot:
             return
 
+        # This might not be the most efficent solution
+        # But it works...
+
         notifications = []
+
         for cached_word in self.bot.cached_words:
-            if self.word_in_message(cached_word, message.content.lower()):
+            escaped = re.escape(cached_word)
+            regex = re.compile(r"^(:?{word})(:?[{word}]*)(:?\d*)(:?(\"|'|-|~|.|:|!)*)(:?s*)$".format(word=escaped), re.I)
+
+            for word in message.content.split():
+                print(word)
+                match = regex.match(word)
+
+                if not match:
+                    continue
+
                 query = """SELECT *
-                           FROM words
-                           WHERE words.guild_id=$1 AND words.word=$2;
+                            FROM words
+                            WHERe words.word=$1 AND words.guild_id=$2;
                         """
-                words = await self.bot.db.fetch(query, message.guild.id, cached_word)
+                words = await self.bot.db.fetch(query, cached_word, message.guild.id)
 
                 for word in words:
-                    if word["user_id"] not in [notification["user_id"] for notification in notifications]:
-                        notifications.append(word)
+                    if word["word"] not in notifications:
+                        notifications.append(word["word"])
+                        print(match.group(0))
+                        coroutine = self.send_highlight(message, word, match.group(0))
+                        self.bot.loop.create_task(coroutine)
 
-        tasks = [self.send_highlight(message, notification) for notification in notifications]
-        await asyncio.gather(*tasks)
-
-    async def send_highlight(self, message, word):
+    async def send_highlight(self, message, word, text):
         try:
             member = await message.guild.fetch_member(word["user_id"])
         except discord.NotFound:
@@ -189,7 +202,7 @@ class Highlight(commands.Cog):
 
         span = re.search(word["word"], message.content.lower()).span()
         content = discord.utils.escape_markdown(message.content[:span[0]])
-        content += f"**{discord.utils.escape_markdown(word['word'])}**"
+        content += f"**{discord.utils.escape_markdown(text)}**"
         content += discord.utils.escape_markdown(message.content[span[1]:])
 
         content = f"{content[:50]}{'...' if len(content) > 50 else ''}"

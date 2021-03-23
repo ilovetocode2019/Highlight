@@ -79,11 +79,19 @@ class HighlightBot(commands.Bot):
                 """
         await self.db.execute(query)
 
-        log.info("Preparing words cache")
-        self.cached_words = []
-        for row in await self.db.fetch("SELECT word FROM words"):
-            if row["word"] not in self.cached_words:
-                self.cached_words.append(row["word"])
+        log.info("Preparing highlight word cached")
+
+        query = """SELECT *
+                   FROM words;
+                """
+        words = await self.db.fetch(query)
+
+        cached_words = []
+        for word in words:
+            if word["word"] not in cached_words:
+                cached_words.append(word["word"])
+
+        self.cached_words = cached_words
 
     async def on_ready(self):
         log.info(f"Logged in as {self.user.name} - {self.user.id}")
