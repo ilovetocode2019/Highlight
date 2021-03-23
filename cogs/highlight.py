@@ -20,7 +20,7 @@ class DiscordConverter(commands.Converter):
             while ctx.bot.is_ws_ratelimited():
                 await asyncio.sleep(5)
 
-class MemberConverter(DiscordConverter):
+class Member(DiscordConverter):
     async def convert(self, ctx, arg):
         match = self.mention_or_id(arg)
 
@@ -59,7 +59,7 @@ class MemberConverter(DiscordConverter):
 
         raise commands.BadArgument(f"Member `{arg}` not found")
 
-class UserConverter(DiscordConverter):
+class User(DiscordConverter):
     async def convert(self, ctx, arg):
         match = self.mention_or_id(arg)
 
@@ -389,7 +389,7 @@ class Highlight(commands.Cog):
             pass
 
     @commands.command(name="block", description="Block a user or channel", usage="<user or channel>", aliases=["ignore", "mute"])
-    async def block(self, ctx, *, user: typing.Union[UserConverter, discord.TextChannel]):
+    async def block(self, ctx, *, user: typing.Union[User, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
                    WHERE settings.user_id=$1;
@@ -437,7 +437,7 @@ class Highlight(commands.Cog):
             pass
 
     @commands.command(name="unblock", description="Unblock a user or channel", usage="<user or channel>", aliases=["unmute"])
-    async def unblock(self, ctx, *, user: typing.Union[UserConverter, discord.TextChannel]):
+    async def unblock(self, ctx, *, user: typing.Union[User, discord.TextChannel]):
         query = """SELECT *
                    FROM settings
                    WHERE settings.user_id=$1;
