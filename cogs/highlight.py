@@ -3,12 +3,12 @@ from discord.ext import commands, menus, tasks
 
 import asyncio
 import asyncpg
-import typing
-import re
-import datetime
 import dateparser
+import datetime
 import humanize
 import logging
+import re
+import typing
 
 class DiscordConverter(commands.Converter):
     def mention_or_id(self, arg):
@@ -135,25 +135,23 @@ class Highlight(commands.Cog):
 
         for cached_word in self.bot.cached_words:
             escaped = re.escape(cached_word)
-            regex = re.compile(r"^(:?{word})(:?[{word}]*)(:?\d*)(:?(\"|'|-|~|.|:|!)*)(:?s*)$".format(word=escaped), re.I)
+            regex = re.compile(r"^(:?\W+)?({word})(:?[{word}]*)(:?(\W+)|(:?('|\")?s*))?$".format(word=escaped), re.I)
 
             for word in message.content.split():
-                print(word)
                 match = regex.match(word)
 
                 if not match:
                     continue
 
                 query = """SELECT *
-                            FROM words
-                            WHERe words.word=$1 AND words.guild_id=$2;
+                           FROM words
+                           WHERE words.word=$1 AND words.guild_id=$2;
                         """
                 words = await self.bot.db.fetch(query, cached_word, message.guild.id)
 
                 for word in words:
                     if word["word"] not in notifications:
                         notifications.append(word["word"])
-                        print(match.group(0))
                         coroutine = self.send_highlight(message, word, match.group(0))
                         self.bot.loop.create_task(coroutine)
 
