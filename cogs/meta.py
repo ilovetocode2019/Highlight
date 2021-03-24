@@ -1,10 +1,10 @@
 import discord
 from discord.ext import commands
 
-import traceback
-import sys
 import datetime
 import humanize
+import sys
+import traceback
 
 class HighlightHelpCommand(commands.HelpCommand):
     bottom_text = "\n\nKey: `<required> [optional]`. **Remove <> and [] when using the command**. \nFor more help join the [support server]({0})."
@@ -121,7 +121,7 @@ class Meta(commands.Cog):
 
     @commands.command(name="uptime", description="Check my uptime")
     async def uptime(self, ctx):
-        delta = datetime.datetime.utcnow()-self.bot.startup_time
+        delta = datetime.datetime.utcnow()-self.bot.uptime
         await ctx.send(f"I started up {humanize.naturaldelta(delta)} ago")
 
     @commands.command(name="ping", description="Check my latency")

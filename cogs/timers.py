@@ -2,10 +2,10 @@ import discord
 from discord.ext import commands
 from discord.ext import tasks
 
-import datetime
-import humanize
 import asyncio
 import dateparser
+import datetime
+import humanize
 
 class Timers(commands.Cog):
     def __init__(self, bot):

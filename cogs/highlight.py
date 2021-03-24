@@ -236,28 +236,7 @@ class Highlight(commands.Cog):
         except discord.Forbidden:
             log.warning("Forbidden to send highlight message to user ID %s", member.id)
 
-    def word_in_message(self, word, message):
-        # Get the word in the message
-        match = re.search(word, message)
-
-        # Word isn't the message so, reurn False
-        if not match:
-            return False
-
-        span = match.span()
-
-        start = span[0]-1
-        end = span[1]
-
-        if start >= 0:
-            # If the charecter before the word is not a space, then the word techincally isn't in the message
-            if message[start] != " ":
-                return False
-
-        return True
-
     async def can_dm(self, user):
-        # Attempt to check if the user can be be sen DMs by sending an empy message
         try:
             await user.send()
         except discord.HTTPException as exc:

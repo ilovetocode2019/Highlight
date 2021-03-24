@@ -1,7 +1,7 @@
-discord.py
-jishaku
-psutil
 asyncpg
 dateparser
+discord.py
 humanize
+jishaku
+psutil
 git+https://github.com/Rapptz/discord-ext-menus
