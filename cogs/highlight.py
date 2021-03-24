@@ -159,7 +159,8 @@ class Highlight(commands.Cog):
         try:
             member = await message.guild.fetch_member(word["user_id"])
         except discord.NotFound:
-            log.info("Received a highlight for user ID %s (guild ID %s) but member could not be fetched", word["user_id"], word["guild_id"])
+            log.info("Unknown user ID %s (guild ID %s)", word["user_id"], word["guild_id"])
+            return
 
         query = """SELECT *
                    FROM settings
@@ -234,7 +235,7 @@ class Highlight(commands.Cog):
         try:
             await member.send(embed=em)
         except discord.Forbidden:
-            log.warning("Forbidden to send highlight message to user ID %s", member.id)
+            log.warning("Forbidden to DM user ID %s (guild ID %s)", member.id, guild.id)
 
     async def can_dm(self, user):
         try:
