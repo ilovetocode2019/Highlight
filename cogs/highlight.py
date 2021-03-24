@@ -135,7 +135,7 @@ class Highlight(commands.Cog):
 
         for cached_word in self.bot.cached_words:
             escaped = re.escape(cached_word)
-            regex = re.compile(r"^(:?\W+)?({word})(:?[{word}]*)(:?(\W+)|(:?('|\")?s*))?$".format(word=escaped), re.I)
+            regex = re.compile(r"^(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)$".format(word=escaped), re.I)
 
             for word in message.content.split():
                 match = regex.match(word)
@@ -152,7 +152,7 @@ class Highlight(commands.Cog):
                 for word in words:
                     if word["word"] not in notifications:
                         notifications.append(word["word"])
-                        coroutine = self.send_highlight(message, word, match.group(0))
+                        coroutine = self.send_highlight(message, word, match.group(1))
                         self.bot.loop.create_task(coroutine)
 
     async def send_highlight(self, message, word, text):
