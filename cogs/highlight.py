@@ -135,25 +135,23 @@ class Highlight(commands.Cog):
 
         for cached_word in self.bot.cached_words:
             escaped = re.escape(cached_word)
-            regex = re.compile(r"^(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)$".format(word=escaped), re.I)
+            regex = re.compile(r"^(.+ |)(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)(| .+)$".format(word=escaped), re.I)
+            match = regex.match(message.content)
 
-            for word in message.content.split():
-                match = regex.match(word)
+            if not match:
+                continue
 
-                if not match:
-                    continue
+            query = """SELECT *
+                        FROM words
+                        WHERE words.word=$1 AND words.guild_id=$2;
+                    """
+            words = await self.bot.db.fetch(query, cached_word, message.guild.id)
 
-                query = """SELECT *
-                           FROM words
-                           WHERE words.word=$1 AND words.guild_id=$2;
-                        """
-                words = await self.bot.db.fetch(query, cached_word, message.guild.id)
-
-                for word in words:
-                    if word["word"] not in notifications:
-                        notifications.append(word["word"])
-                        coroutine = self.send_highlight(message, word, match.group(1))
-                        self.bot.loop.create_task(coroutine)
+            for word in words:
+                if word["word"] not in notifications:
+                    notifications.append(word["word"])
+                    coroutine = self.send_highlight(message, word, match.group(1))
+                    self.bot.loop.create_task(coroutine)
 
     async def send_highlight(self, message, word, text):
         try:
