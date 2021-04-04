@@ -128,14 +128,13 @@ class Highlight(commands.Cog):
         if message.author.bot:
             return
 
-        # This might not be the most efficent solution
-        # But it works...
+        # Search for any highlight words in the message
 
         notifications = []
 
         for cached_word in self.bot.cached_words:
             escaped = re.escape(cached_word)
-            regex = re.compile(r"^(.+ |)(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)(| .+)$".format(word=escaped), re.I)
+            regex = re.compile(r"^(?:.+ )?(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)(?: .+)?$".format(word=escaped), re.I)
             match = regex.match(message.content)
 
             if not match:
