@@ -7,8 +7,8 @@ If you have questions or issues, feel free to join the [support server](https://
 
 ## Installation
 
-For instruction on installing to bot, see the [installion instructions](/installation).
+For instruction on installing to bot, see the [installion instructions](installation).
 
 ## Configuration
 
-For instructions on configuring the bot, see [configuration](/configuration).
+For instructions on configuring the bot, see [configuration](configuration).

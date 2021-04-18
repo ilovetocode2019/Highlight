@@ -39,7 +39,7 @@ database_uri = "postgres://highlight:password@localhost/highlight" # Replace pas
 console = 12345678912345678 # Channel ID of where to log errors and outdated packages
 ```
 
-More detailed instructions on confifguring the bot, can be found [here](/configuration).
+More detailed instructions on confifguring the bot, can be found [here](configuration).
 
 6. **Run the bot**
 
@@ -49,4 +49,4 @@ You need to keep the command running for the bot to stay online. If you can't ru
 
 ## What's Next
 
-If your interested in configuring the bot further, see [configuration](/configuration).
+If your interested in configuring the bot further, see [configuration](configuration).
