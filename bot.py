@@ -2,13 +2,19 @@ import discord
 from discord.ext import commands
 
 import aiohttp
-import asyncpg
 import datetime
 import json
 import logging
 
+import asyncpg
+import yaml
+
 log = logging.getLogger("highlight")
-logging.basicConfig(level=logging.INFO, format="(%(asctime)s) %(levelname)s %(message)s", datefmt="%m/%d/%y - %H:%M:%S %Z")
+logging.basicConfig(
+    level=logging.INFO,
+    format="(%(asctime)s) %(levelname)s %(message)s",
+    datefmt="%m/%d/%y - %H:%M:%S %Z"
+)
 
 extensions = [
     "cogs.admin",
@@ -17,6 +23,7 @@ extensions = [
     "cogs.timers"
 ]
 
+
 class HighlightBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents(guilds=True, messages=True, reactions=True)
@@ -24,6 +31,7 @@ class HighlightBot(commands.Bot):
 
         self.uptime = datetime.datetime.utcnow()
         self.support_server_link = "https://discord.gg/eHxvStNJb7"
+        self.config = self.load_config()
 
         self.load_extension("jishaku")
         self.get_cog("Jishaku").hidden = True
@@ -34,9 +42,13 @@ class HighlightBot(commands.Bot):
             except Exception as exc:
                 log.error("Couldn't load extension %s", extension, exc_info=exc)
 
+    def load_config(self):
+        with open("config.yml") as file:
+            return yaml.safe_load(file)
+
     async def create_pool(self):
         async def init(connection): await connection.set_type_codec("jsonb", schema="pg_catalog", encoder=json.dumps, decoder=json.loads, format="text")
-        self.db = await asyncpg.create_pool(self.config.database_uri, init=init)
+        self.db = await asyncpg.create_pool(self.config["database_uri"], init=init)
 
         with open("schema.sql") as file:
             schema = file.read()
@@ -57,14 +69,11 @@ class HighlightBot(commands.Bot):
 
     async def on_ready(self):
         log.info(f"Logged in as {self.user.name} - {self.user.id}")
-        self.console = self.get_channel(self.config.console)
+        self.console = self.get_channel(self.config["console"])
 
     def run(self):
-        super().run(self.config.token)
+        super().run(self.config["token"])
 
-    @discord.utils.cached_property
-    def config(self):
-        return __import__("config")
 
 bot = HighlightBot()
 bot.run()
