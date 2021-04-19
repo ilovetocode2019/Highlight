@@ -1,6 +1,7 @@
 title: Highlight
 description: A Discord bot that notifies you when a configured word is sent in a channel
-url: "https://ilovetocode2019.com/Highlight"
+baseurl: /Highlight
+url: "https://ilovetocode2019.com"
 show_full_navigation: true
 
 remote_theme: pmarsceill/just-the-docs
