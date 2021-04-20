@@ -222,7 +222,8 @@ class Admin(commands.Cog):
             for package in outdated:
                 em.description += f"\n{package[0]} (Current: {package[1]} | Latest: {package[2]})"
 
-            await self.bot.console.send(embed=em)
+            if self.bot.console:
+                await self.bot.console.send(embed=em)
 
     @update_packages_loop.before_loop
     async def before_update_packages_loop(self):

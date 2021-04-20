@@ -117,7 +117,8 @@ class Meta(commands.Cog):
             em.description += f"\nLink: [Jump]({ctx.message.jump_url})"
             em.description += f"\n\n```py\n{error}```\n"
 
-            await self.bot.console.send(embed=em)
+            if self.bot.console:
+                await self.bot.console.send(embed=em)
 
     @commands.command(name="uptime", description="Check my uptime")
     async def uptime(self, ctx):

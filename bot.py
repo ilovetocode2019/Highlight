@@ -69,7 +69,7 @@ class HighlightBot(commands.Bot):
 
     async def on_ready(self):
         log.info(f"Logged in as {self.user.name} - {self.user.id}")
-        self.console = self.get_channel(self.config["console"])
+        self.console = self.get_channel(self.config["console"]) if "console" in self.config else None
 
     def run(self):
         super().run(self.config["token"])
