@@ -7,7 +7,7 @@ nav_order: 3
 
 All configuration is stored in the `config.yml` file.
 
-Editing the configuration incorrectly can cause errors when you try to run the bot. Be carefull when editing the configuration.
+Editing the configuration incorrectly can cause errors when you try to run the bot. Be careful when editing the configuration.
 {: .warn }
 
 To edit the configuration, open `config.yml` and edit the options.
