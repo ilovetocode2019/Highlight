@@ -1,12 +1,17 @@
 # Highlight
 
-A Discord bot that notifies you through DMs when a highlight word is found in a channel. [Click here](https://discord.com/oauth2/authorize?client_id=730101972103069795&scope=bot&permissions=8192) to add Highlight to your server.
+A Discord bot that notifies you when a configured word is sent in a channel.
 
 If you have questions or issues, feel free to join the [support server](https://discord.gg/eHxvStNJb7) on Discord.
 
 ## Features
-- DM notifications for highlight words
-- Time zone configuration
-- Temporarily disable Highlight
-- Block users or channel
-- Import lists from other servers
+
+- Automatic notifications when someone says a configured word
+- Useful custom settings
+- Disabled/do not disturb mode
+- Muting/Blocking to ignore highlight words from a user or channel
+- Importing words from other servers
+
+## Documentation
+
+You can find information on seting up and using the bot [here](https://ilovetocode2019.com/Highlight).
