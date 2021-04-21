@@ -24,6 +24,14 @@ extensions = [
 ]
 
 
+class OptionMissing(Exception):
+    pass
+
+
+class InvalidOption(Exception):
+    pass
+
+
 class HighlightBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents(guilds=True, messages=True, reactions=True)
@@ -44,11 +52,30 @@ class HighlightBot(commands.Bot):
 
     def load_config(self):
         with open("config.yml") as file:
-            return yaml.safe_load(file)
+            config = yaml.safe_load(file)
+
+        if "token" not in config:
+            raise OptionMissing("A Discord API token is required to run the bot, but was not found in config.yml")
+        elif "database-uri" not in config:
+            raise OptionMissing("A database URI is required for functionality, but was not found in config.yml")
+
+        if "auto-update" not in config:
+            config["auto-update"] = True
+        if "console" not in config:
+            config["console"] = None
+
+        if not isinstance(config["token"], str):
+            raise InvalidOption("The Discord API token must be a string")
+        elif not isinstance(config["database-uri"], str):
+            raise InvalidOption("The database URI must be a string")
+        elif not isinstance(config["auto-update"], bool):
+            raise InvalidOption("Auto-update must either be True or False")
+
+        return config
 
     async def create_pool(self):
         async def init(connection): await connection.set_type_codec("jsonb", schema="pg_catalog", encoder=json.dumps, decoder=json.loads, format="text")
-        self.db = await asyncpg.create_pool(self.config["database_uri"], init=init)
+        self.db = await asyncpg.create_pool(self.config["database-uri"], init=init)
 
         with open("schema.sql") as file:
             schema = file.read()
@@ -69,7 +96,7 @@ class HighlightBot(commands.Bot):
 
     async def on_ready(self):
         log.info(f"Logged in as {self.user.name} - {self.user.id}")
-        self.console = self.get_channel(self.config["console"]) if "console" in self.config else None
+        self.console = self.get_channel(self.config["console"])
 
     def run(self):
         super().run(self.config["token"])

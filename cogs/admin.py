@@ -5,6 +5,7 @@ import asyncio
 import humanize
 import importlib
 import io
+import logging
 import os
 import pkg_resources
 import psutil
@@ -17,13 +18,15 @@ from jishaku import codeblocks, paginators, shell
 
 from .utils import formats, menus
 
+log = logging.getLogger("highlight.admin")
+
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.hidden = True
 
-        self.outdated_packages = []
-        self.update_packages_loop.start()
+        if self.bot.config["auto-update"]:
+            self.update_packages_loop.start()
 
     def cog_unload(self):
         self.update_packages_loop.cancel()
@@ -208,22 +211,15 @@ class Admin(commands.Cog):
 
         return outdated
 
-    @tasks.loop(hours=10)
+    @tasks.loop(hours=12)
     async def update_packages_loop(self):
-        """Checks for outdated packages every 10 hours."""
+        """Automaticly updates packages every 12 hours."""
 
-        outdated = await self.get_outdated_packages(wait=5)
-        self.outdated_packages = outdated
+        process = await asyncio.create_subprocess_shell(f"{sys.executable} -m pip install --upgrade pip -r requirements.txt", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        status = await process.wait()
 
-        if outdated:
-            joined = " ".join([package[0] for package in outdated])
-            em = discord.Embed(title="Outdated Packages", description=f"Update with `jsk sh {sys.executable} -m pip install -U {joined}`\n", color=0x96c8da)
-
-            for package in outdated:
-                em.description += f"\n{package[0]} (Current: {package[1]} | Latest: {package[2]})"
-
-            if self.bot.console:
-                await self.bot.console.send(embed=em)
+        if status:
+            log.warning(f"Couldn't automaticly update packages (status code {status})")
 
     @update_packages_loop.before_loop
     async def before_update_packages_loop(self):
