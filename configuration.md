@@ -5,30 +5,25 @@ nav_order: 3
 
 # Configuration
 
-All configuration is stored in the `config.py` file. Each configuration value is stored as a variable in the config file.
+All configuration is stored in the `config.yml` file.
 
-Editing the configuration incorrectly could cause the bot to crash on startup
+Editing the configuration incorrectly can cause errors when you try to run the bot. Be carefull when editing the configuration.
 {: .warn }
 
-To edit the configuration, open the file and change the values. The `config.py` file will look something like this:
+To edit the configuration, open `config.yml` and edit the options.
 
-```python
-token = "TOKEN HERE"
-database_uri = "postgres://highlight:PASSWORD HERE@localhost/highlight"
-console = 12345678912345678
+The configuration file should look something like this:
+
+```yml
+token: "TOKEN HERE"
+database-uri: "postgres://highlight:PASSWORD HERE@localhost/highlight"
+auto-update: true
 ```
 
-Here is the format for the file:
+Here is a table of valid configuration options:
 
-```python
-option = "text value (quoted)"
-option = 12345678912345678
-```
-
-Here is a table of configuration options:
-
-| Option       | Description                                                                                                                                                                                               | Default  | Type    |
-|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|---------|
-| token        | The Discord API token for the bot. If your unsure how to get a token see [this page](https://discordpy.readthedocs.io/en/latest/discord.html#discord-intro).                                                            | Required | String  |
-| database_uri | The URI for the postgresql. database                                                                                                                                                                      | Required | String  |
-| console      | The channel ID to log information to. To copy a channel ID go to `Settings > Advanced` and then select Developer mode. An option for copying the channel ID will appear, when right clicking any channel. | Required | Integer |
+| Option       | Description                                                                                                                                                                                 | Default  | Type    |
+|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|---------|
+| token        | The Discord API token for the bot. If you are unsure on how to create a bot and retrieve it's token see [this page](https://discordpy.readthedocs.io/en/latest/discord.html#discord-intro). | Required | String  |
+| database-uri | The URI for the postgresql database.                                                                                                                                                        | Required | String  |
+| auto-update  | Whether or not requied packages should be automaticly updated.                                                                                                                              | True     | Boolean |

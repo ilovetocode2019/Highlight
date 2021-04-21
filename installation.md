@@ -36,12 +36,12 @@ If you have any issues with the installation process, feel free to ask for help 
 
 5. **Configure the bot**
 
-    Create a `config.py` file in directory where the bot is located. The file should look something like this.
+    Create a `config.yml` file in the directory where the bot is located. The file should look something like this:
 
-    ```python
-    token = "TOKEN HERE"
-    database_uri = "postgres://highlight:PASSWORD HERE@localhost/highlight"
-    console = 12345678912345678
+    ```yml
+    token: "TOKEN HERE"
+    database-uri: "postgres://highlight:PASSWORD HERE@localhost/highlight"
+    auto-update: true
     ```
 
     More detailed instructions on confifguring the bot, can be found [here](configuration).
