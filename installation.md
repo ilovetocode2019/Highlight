@@ -17,9 +17,12 @@ If you have any issues with the installation process, feel free to ask for help 
 
     If you don't have python already installed you can [download it here](https://www.python.org/downloads/). You will need python 3.7+ to run the bot. Using Python 3.8 or 3.9 is recommended.
 
+    Make sure to include Pip (the Python package manager) with the installation. You can also see [this page](https://pip.pypa.io/en/latest/installing/) for instructions on installing Pip.
+    {: .note }
+
 3. **Install required dependencies**
 
-    On windows you should run `py -m pip install -r requirements.txt` in the comamnd line. On Linux/Mac you should run `python3 -m pip install -r requirements.txt` in the terminal.
+    On windows you should run `py -m pip install -U pip -r requirements.txt` in the comamnd line. On Linux/Mac you should run `python3 -m pip install -U pip -r requirements.txt` in the terminal.
 
 4. **Setup the postgresql database**
 
@@ -50,7 +53,7 @@ If you have any issues with the installation process, feel free to ask for help 
 
     On Windows you can run `py bot.py` in the command line. On Linux/Mac you can run `python3 bot.py` in the terminal.
 
-    You need to keep the command running for the bot to stay online. If you can't run this on your own machine, I recommend getting a cheap VPS, and running the bot with a process manager like [systemd](https://en.wikipedia.org/wiki/Systemd).
+    You need to keep running the bot in order to keep it online. If you can't run it on your own machine, I recommend renting a cheap VPS, and running the bot with a process manager like [systemd](https://en.wikipedia.org/wiki/Systemd).
     {: .note }
 
 ## What's Next?
