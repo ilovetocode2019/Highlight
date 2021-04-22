@@ -8,6 +8,14 @@ nav_order: 1
 
 A Discord bot that notifies you when a configured word is sent in a channel.
 
+## Features
+
+- Automatic notifications when someone says a configured word
+- Useful custom settings
+- Disabled/do not disturb mode
+- Muting/Blocking to ignore highlight words from a user or channel
+- Importing words from other servers
+
 ## Installation
 
 For instruction on installing to bot, see the [installation instructions](installation).
