@@ -14,4 +14,4 @@ If you have questions or issues, feel free to join the [support server](https://
 
 ## Documentation
 
-You can find information on seting up and using the bot [here](https://ilovetocode2019.com/Highlight).
+You can find information on setting up and using the bot [here](https://ilovetocode2019.com/Highlight).
