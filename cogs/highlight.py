@@ -134,8 +134,7 @@ class Highlight(commands.Cog):
 
         for cached_word in self.bot.cached_words:
             escaped = re.escape(cached_word)
-            regex = re.compile(r"^(?:.+ )?(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)(?: .+)?$".format(word=escaped), re.I)
-            match = regex.match(message.content)
+            match = re.match(r"^(?:.+ )?(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)(?: .+)?$".format(word=escaped), message.content, re.I)
 
             if not match:
                 continue
