@@ -222,7 +222,7 @@ class Highlight(commands.Cog):
         try:
             await member.send(embed=em)
         except discord.Forbidden:
-            log.warning("Forbidden to DM user ID %s (guild ID %s)", member.id, guild.id)
+            log.warning("Forbidden to DM user ID %s (guild ID %s)", member.id, message.guild.id)
 
     async def can_dm(self, user):
         try:
