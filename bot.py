@@ -84,8 +84,8 @@ class HighlightBot(commands.Bot):
         query = """SELECT *
                    FROM words;
                 """
-        words = await self.db.fetch(query)
-        self.cached_words = [word["word"] for word in set(words)]
+        cached_words = await self.db.fetch(query)
+        self.cached_words = [dict(cached_word) for cached_word in cached_words]
 
     async def on_connect(self):
         if not hasattr(self, "session"):

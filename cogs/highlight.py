@@ -130,26 +130,17 @@ class Highlight(commands.Cog):
 
         # Search for any highlight words in the message
 
-        notifications = []
+        notified_words = []
+        possible_words = [word for word in self.bot.cached_words if word["guild_id"] == message.guild.id]
 
-        for cached_word in self.bot.cached_words:
-            escaped = re.escape(cached_word)
+        for possible_word in possible_words:
+            escaped = re.escape(possible_word["word"])
             match = re.match(r"^(?:.+ )?(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)(?: .+)?$".format(word=escaped), message.content, re.I)
 
-            if not match:
-                continue
-
-            query = """SELECT *
-                        FROM words
-                        WHERE words.word=$1 AND words.guild_id=$2;
-                    """
-            words = await self.bot.db.fetch(query, cached_word, message.guild.id)
-
-            for word in words:
-                if word["word"] not in notifications:
-                    notifications.append(word["word"])
-                    coroutine = self.send_highlight(message, word, match.group(1))
-                    self.bot.loop.create_task(coroutine)
+            if match and possible_word["user_id"] not in [notified_word["user_id"] for notified_word in notified_words]:
+                notified_words.append(possible_word)
+                coroutine = self.send_highlight(message, possible_word, match.group(1))
+                self.bot.loop.create_task(coroutine)
 
     async def send_highlight(self, message, word, text):
         try:
@@ -260,12 +251,11 @@ class Highlight(commands.Cog):
         else:
             try:
                 query = """INSERT INTO words (user_id, guild_id, word)
-                        VALUES ($1, $2, $3);
+                           VALUES ($1, $2, $3);
                         """
                 await self.bot.db.execute(query, ctx.author.id, ctx.guild.id, word)
 
-                if word not in self.bot.cached_words:
-                    self.bot.cached_words.append(word)
+                self.bot.cached_words.append({"user_id": ctx.author.id, "guild_id": ctx.guild.id, "word": word})
                 await ctx.send(f":white_check_mark: Added `{word}` to your highlight list", delete_after=5)
             except asyncpg.UniqueViolationError:
                 await ctx.send(":x: You already have this word", delete_after=5)
@@ -287,8 +277,13 @@ class Highlight(commands.Cog):
         else:
             await ctx.send(f":white_check_mark: Removed `{word}` from your highlight list", delete_after=5)
 
+        # Remove from cached words to avoid removed words triggering highlights
+        for cached_word in self.bot.cached_words:
+            if cached_word["user_id"] == ctx.author.id and cached_word["guild_id"] == ctx.guild.id and cached_word["word"] == word:
+                self.bot.cached_words.remove(cached_word)
+
         try:
-           await ctx.message.delete()
+            await ctx.message.delete()
         except discord.HTTPException:
             pass
 
@@ -300,6 +295,10 @@ class Highlight(commands.Cog):
         result = await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
 
         await ctx.send(f":white_check_mark: Your highlight list has been cleared", delete_after=5)
+
+        for cached_word in self.bot.cached_words:
+            if cached_word["user_id"] == ctx.author.id and cached_word["guild_id"] == ctx.guild.id:
+                self.bot.cached_words.remove(cached_word)
 
         try:
             await ctx.message.delete()
@@ -333,6 +332,9 @@ class Highlight(commands.Cog):
         else:
             await ctx.send(":x: You have no words to transfer from this server", delete_after=5)
 
+        for transfered in to_transfer:
+            self.bot.cached_words.append(transfered)
+
         try:
             await ctx.message.delete()
         except discord.HTTPException:
@@ -340,25 +342,22 @@ class Highlight(commands.Cog):
 
     @commands.command(name="show", description="View your highlight list", aliases=["words", "list"])
     async def show(self, ctx):
-        query = """SELECT * FROM words
-                   WHERE words.user_id=$1 AND words.guild_id=$2;
-                """
-        rows = await self.bot.db.fetch(query, ctx.author.id, ctx.guild.id)
+        words = [cached_word for cached_word in self.bot.cached_words if cached_word["user_id"] == ctx.author.id and cached_word["guild_id"] == ctx.guild.id]
 
-        if not rows:
+        if not words:
             await ctx.send("You have no words for this server", delete_after=10)
         else:
             em = discord.Embed(title="Highlight Words", color=discord.Color.blurple())
             em.set_author(name=ctx.author.display_name, icon_url=ctx.author.avatar_url)
 
             em.description = ""
-            for row in rows:
-                em.description += f"\n{row['word']}"
+            for word in words:
+                em.description += f"\n{word['word']}"
 
             await ctx.send(embed=em, delete_after=10)
 
         try:
-           await ctx.message.delete()
+            await ctx.message.delete()
         except discord.HTTPException:
             pass
 
