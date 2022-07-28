@@ -9,7 +9,5 @@ remote_theme: pmarsceill/just-the-docs
 aux_links:
   "GitHub":
     - "https://github.com/ilovetocode2019/Highlight"
-  "Discord":
-    - "https://discord.gg/eHxvStNJb7"
 
 footer_content: "Copyright &copy; 2021 ilovetocode. Highlight is licensed under the <a href='https://github.com/ilovetocode2019/Highlight/blob/master/LICENSE'>MIT license</a>."

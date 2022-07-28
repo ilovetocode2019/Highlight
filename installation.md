@@ -5,8 +5,6 @@ nav_order: 2
 
 # Installation
 
-If you have any issues with the installation process, feel free to ask for help in the [support server](https://discord.gg/eHxvStNJb7) on Discord.
-
 1. **Clone the bot as a Git repository**
 
     If you don't have Git installed you can [download it here](https://git-scm.com/downloads).
