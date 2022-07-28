@@ -6,7 +6,7 @@ nav_order: 1
 
 # Highlight
 
-A Discord bot that notifies you when a configured word is sent in a channel.
+A Discord bot that notifies you when a configured word is sent in a channel. Unfortanetly this bot is not currently being maintained.
 
 ## Features
 

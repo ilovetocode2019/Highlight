@@ -5,6 +5,9 @@ nav_order: 2
 
 # Installation
 
+This is bot is not being supported anymore. These instructions likely still work, however the bot will eventually break and any issues you have will not be fixed.
+{: .note }
+
 1. **Clone the bot as a Git repository**
 
     If you don't have Git installed you can [download it here](https://git-scm.com/downloads).
