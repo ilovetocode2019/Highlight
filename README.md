@@ -1,8 +1,6 @@
 # Highlight
 
-A Discord bot that notifies you when a configured word is sent in a channel.
-
-If you have questions or issues, feel free to join the [support server](https://discord.gg/eHxvStNJb7) on Discord.
+A Discord bot that notifies you when a configured word is sent in a channel. I'm done maintaing this bot for now.
 
 ## Features
 
