@@ -1,13 +1,11 @@
-import discord
-from discord.ext import commands
-
-import aiohttp
 import datetime
 import json
 import logging
 
+import aiohttp
 import asyncpg
-import yaml
+import discord
+from discord.ext import commands
 
 log = logging.getLogger("highlight")
 logging.basicConfig(
@@ -40,7 +38,9 @@ class HighlightBot(commands.Bot):
 
         self.uptime = datetime.datetime.utcnow()
         self.support_server_invite = "https://discord.gg/vxeHZbd3Zf"
-        self.config = self.load_config()
+
+        self.status_webhook = None
+        self.console = None
 
     async def setup_hook(self):
         log.info("Loading Jishaku")
@@ -53,9 +53,19 @@ class HighlightBot(commands.Bot):
             except Exception as exc:
                 log.error("Couldn't load extension %s", extension, exc_info=exc)
 
+        log.info("Creating session")
+        self.session = aiohttp.ClientSession()
+
+        log.info("Getting webhooks")
+        if getattr(self.config, "status_hook", None):
+            self.status_webhook = discord.Webhook.from_url(self.config.status_hook, session=self.session)
+
+        if getattr(self.config, "console_hook", None):
+            self.console = discord.Webhook.from_url(self.config.console_hook, session=self.session)
+
         log.info("Connecting with database")
         async def init(connection): await connection.set_type_codec("jsonb", schema="pg_catalog", encoder=json.dumps, decoder=json.loads, format="text")
-        self.db = await asyncpg.create_pool(self.config["database-uri"], init=init)
+        self.db = await asyncpg.create_pool(self.config.database_uri, init=init)
 
         with open("schema.sql") as file:
             schema = file.read()
@@ -68,36 +78,34 @@ class HighlightBot(commands.Bot):
         cached_words = await self.db.fetch(query)
         self.cached_words = [dict(cached_word) for cached_word in cached_words]
 
-    def load_config(self):
-        with open("config.yml") as file:
-            config = yaml.safe_load(file)
-
-        if "token" not in config:
-            raise OptionMissing("A Discord API token is required to run the bot, but was not found in config.yml")
-        elif "database-uri" not in config:
-            raise OptionMissing("A database URI is required for functionality, but was not found in config.yml")
-
-        if "console" not in config:
-            config["console"] = None
-
-        if not isinstance(config["token"], str):
-            raise InvalidOption("The Discord API token must be a string")
-        elif not isinstance(config["database-uri"], str):
-            raise InvalidOption("The database URI must be a string")
-
-        return config
-
     async def on_ready(self):
         log.info(f"Logged in as {self.user.name} - {self.user.id}")
-        self.console = self.get_channel(self.config["console"])
+
+        if self.status_webhook:
+            await self.status_webhook.send("Recevied READY event")
+
+    async def on_connect(self):
+        if self.status_webhook:
+            await self.status_webhook.send("Connected to Discord")
+
+    async def on_disconnect(self):
+        if self.status_webhook and not self.session.closed:
+            await self.status_webhook.send("Disconnected from Discord")
+
+    async def on_resumed(self):
+        if self.status_webhook:
+            await self.status_webhook.send("Resumed connection with Discord")
 
     async def close(self):
         await super().close()
         await self.db.close()
 
     def run(self):
-        super().run(self.config["token"])
+        super().run(self.config.token)
 
+    @discord.utils.cached_property
+    def config(self):
+        return __import__("config")
 
 bot = HighlightBot()
 bot.run()

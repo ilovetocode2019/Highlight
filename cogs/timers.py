@@ -3,7 +3,6 @@ from discord.ext import commands
 from discord.ext import tasks
 
 import asyncio
-import dateparser
 import datetime
 import humanize
 

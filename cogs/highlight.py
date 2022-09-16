@@ -5,27 +5,14 @@ import re
 import typing
 
 import asyncpg
-import dateparser
 import humanize
 import discord
 from discord import app_commands
 from discord.ext import commands, menus, tasks
 
-from .utils import formats, menus
+from .utils import formats, human_time, menus
 
 log = logging.getLogger("cogs.highlight")
-
-class TimeConverter(commands.Converter):
-    async def convert(self, ctx, arg):
-        try:
-            if not arg.startswith("in") and not arg.startswith("at"):
-                arg = f"in {arg}"
-            time = dateparser.parse(arg, settings={"TIMEZONE": "UTC"})
-        except:
-            raise commands.BadArgument("Failed to parse time")
-        if not time:
-            raise commands.BadArgument("Failed to parse time")
-        return time
 
 class JumpBackView(discord.ui.View):
     def __init__(self, jump_url):
@@ -121,22 +108,20 @@ class Highlight(commands.Cog):
     async def check_highlights(self, message):
         if not message.guild:
             return
-        if message.author.bot:
+        elif message.author.bot:
             return
-
-        # Search for any possible highlights inside the message
 
         notified_users = []
         possible_words = [word for word in self.bot.cached_words if word["guild_id"] == message.guild.id]
 
+        # Go through all possible messages
         for possible_word in possible_words:
-            # Check if the highlight is in the message
-            # Also use regex to make sure it doesn't have false positives
+            # Use regex to check if the highlight word is in the message
+            # And avoid any false positives
             escaped = re.escape(possible_word["word"])
             match = re.match(r"^(?:.+ )?(?:\W*)({word})(?:[{word}]*)(?:\W+|[(?:'|\")s]*)(?: .+)?$".format(word=escaped), message.content, re.I)
 
-            # Trigger the highlight if there's a match
-            # Also ignore the trigger if the user was already notified for a word in this message
+            # If there's a match and the user wasn't already notified
             if match and possible_word["user_id"] not in notified_users:
                 notified_users.append(possible_word["user_id"])
                 self.bot.dispatch(f"highlight", message, possible_word, match.group(1))
@@ -163,6 +148,17 @@ class Highlight(commands.Cog):
             log.info("Unknown user ID %s (guild ID %s)", word["user_id"], word["guild_id"])
             return
 
+        # Don't highlight if they were already pinged
+        if member in mesage.mentions:
+            return
+        # Don't highlight if they can't even see the channel
+        elif member not in message.channel.members:
+            return
+        # Don't highlight if it's a command
+        elif (await self.bot.get_context(self.message)).valid:
+            return
+
+        # Get user settings to check for block/disabled
         query = """SELECT *
                    FROM settings
                    WHERE settings.user_id=$1;
@@ -171,21 +167,21 @@ class Highlight(commands.Cog):
         if not settings:
             settings = {"user_id": member.id, "disabled": False, "blocked_users": [], "blocked_channels": []}
 
-        # Make sure the user has highlight enabled, the actually has access to the message/channel, and the author isn't blocked
+        # Don't highlight if they disabled it
         if member.id == message.author.id or settings["disabled"]:
             return
-        if not message.channel.permissions_for(member).read_messages:
-            return
-        if message.channel.id in settings["blocked_channels"] or message.author.id in settings["blocked_users"]:
+        # Don't highlight if they blocked the trigger author
+        elif message.channel.id in settings["blocked_channels"] or message.channel.id in settings["blocked_channels"] or message.channel.message.author.id in settings["blocked_users"]:
             return
 
         # Prepare highlight message
         initial_description = f"In {message.channel.mention} for `{discord.utils.escape_markdown(message.guild.name)}` you were highlighted with the word **{discord.utils.escape_markdown(word['word'])}**\n\n"
 
-        em = discord.Embed(timestamp=message.created_at, color=discord.Color.blurple())
+        em = discord.Embed(description="", timestamp=message.created_at, color=discord.Color.blurple())
         em.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
         em.set_footer(text="Triggered")
 
+        # Add trigger message
         span = re.search(re.escape(word["word"]), message.content.lower()).span()
 
         if len(message.content) > 2000:
@@ -202,6 +198,7 @@ class Highlight(commands.Cog):
         timestamp = message.created_at.timestamp()
         em.description = f"<t:{int(timestamp)}:t> {discord.utils.escape_markdown(str(message.author))}: {content}"
 
+        # Add some history
         try:
             messages = []
             async for ms in message.channel.history(limit=3, before=message):
@@ -217,15 +214,17 @@ class Highlight(commands.Cog):
 
         em.description = initial_description + em.description
 
-        # Wait to make sure the user isn't active in the channel (message sent, typing started, or reaction added)
+        # Wait for any activity
         try:
             await self.bot.wait_for("user_activity", check=lambda channel, user: message.channel == channel and user == member, timeout=10)
             return
         except asyncio.TimeoutError:
             pass
 
+        # Send the highlight message
         try:
             await member.send(embed=em, view=JumpBackView(message.jump_url))
+            log.info("Sent highlight DM to user ID %s (guild ID %s)", member.id, message.guild.id)
 
             self._highlight_batch.append(
                 {
@@ -393,7 +392,7 @@ class Highlight(commands.Cog):
                 await self.bot.db.execute(query, user_id, False, [entity.id], [])
                 return f":no_entry_sign: Blocked `{entity.display_name}`."
 
-        elif isinstance(entity, discord.TextChannel):
+        elif isinstance(entity, discord.TextChannel) or isinstance(entity, discord.CategoryChannel):
             if settings:
                 if entity.id in settings["blocked_channels"]:
                     return "This channel is already blocked."
@@ -450,17 +449,24 @@ class Highlight(commands.Cog):
             else:
                 return "This channel is not blocked."
 
+    async def get_entity(self, ctx, entity):
+        # Essentially typing.Union[discord.Member, discord.User, discord.TextChannel, discord.CategoryChannel]
+        converters = [commands.MemberConverter, commands.UserConverter, commands.TextChannelConverter, commands.CategoryChannelConverter]
+
+        for converter in converters:
+            try:
+                return await converter().convert(ctx, entity)
+            except commands.BadArgument:
+                pass
+
     # Block and unblock text commands
     @commands.hybrid_group(name="block", description="Block a user or channel", usage="<user or channel>", aliases=["ignore", "mute"], invoke_without_command=True)
     @commands.guild_only()
     async def block(self, ctx, *, entity):
-        try:
-            entity = await commands.MemberConverter().convert(ctx, entity)
-        except commands.BadArgument:
-            try:
-                entity = await commands.TextChannelConverter().convert(ctx, entity)
-            except commands.BadArgument:
-                return await ctx.send(f"Channel or user `{entity}` not found.")
+        entity = await self.get_entity(ctx, entity)
+
+        if not entity:
+            return await ctx.send(f"User or channel `{entity}` not found.")
 
         result = await self.do_block(ctx.author.id, entity)
         await ctx.send(result, delete_after=5)
@@ -468,13 +474,10 @@ class Highlight(commands.Cog):
     @commands.hybrid_group(name="unblock", description="Unblock a user or channel", usage="<user or channel>", aliases=["unmute"], invoke_without_command=True)
     @commands.guild_only()
     async def unblock(self, ctx, *, entity):
-        try:
-            entity = await commands.MemberConverter().convert(ctx, entity)
-        except commands.BadArgument:
-            try:
-                entity = await commands.TextChannelConverter().convert(ctx, entity)
-            except commands.BadArgument:
-                return await ctx.send(f"Channel or user `{entity}` not found.")
+        entity = await self.get_entity(ctx, entity)
+
+        if not entity:
+            return await ctx.send(f"User or channel `{entity}` not found.")
 
         result = await self.do_unblock(ctx.author.id, entity)
         await ctx.send(result, delete_after=5)
@@ -486,7 +489,7 @@ class Highlight(commands.Cog):
         await interaction.response.send_message(result, ephemeral=True)
 
     @block.app_command.command(name="channel", description="Block a channel")
-    async def slash_block_channel(self, interaction, channel: discord.TextChannel):
+    async def slash_block_channel(self, interaction, channel: typing.Union[discord.TextChannel, discord.CategoryChannel]):
         result = await self.do_block(interaction.user.id, channel)
         await interaction.response.send_message(result, ephemeral=True)
 
@@ -496,11 +499,11 @@ class Highlight(commands.Cog):
         await interaction.response.send_message(result, ephemeral=True)
 
     @unblock.app_command.command(name="channel", description="Unblock a channel")
-    async def slash_unblock_channel(self, interaction, channel: discord.TextChannel):
+    async def slash_unblock_channel(self, interaction, channel: typing.Union[discord.TextChannel, discord.CategoryChannel]):
         result = await self.do_unblock(interaction.user.id, channel)
         await interaction.response.send_message(result, ephemeral=True)
 
-    @commands.hybrid_group(name="blocked", fallback="show", description="View your blocked list", invoke_without_command=True)
+    @commands.hybrid_group(name="blocked", fallback="show", description="Show your blocked list", invoke_without_command=True)
     @commands.guild_only()
     async def blocked(self, ctx):
         query = """SELECT *
@@ -509,33 +512,37 @@ class Highlight(commands.Cog):
                 """
         settings = await self.bot.db.fetchrow(query, ctx.author.id)
 
-        if not settings or (not settings["blocked_channels"] and not settings["blocked_users"]):
-            await ctx.send("You have no blocked users or channels.", delete_after=5, ephemeral=True)
-        else:
-            em = discord.Embed(color=discord.Color.blurple())
-            em.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
+        em = discord.Embed(description="", color=discord.Color.blurple())
+        em.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
 
-            users = []
-            for user_id in settings["blocked_users"]:
-                user = await self.bot.fetch_user(user_id)
-                guilds = [f"`{guild.name}`" for guild in self.bot.guilds if user in guild.members and ctx.author in guild.members]
+        users = []
+        for user_id in settings["blocked_users"]:
+            user = await self.bot.fetch_user(user_id)
+            guilds = [f"`{guild.name}`" for guild in self.bot.guilds if user in guild.members and ctx.author in guild.members]
 
-                if user and guilds:
-                    users.append(f"{user.mention} - {formats.join(guilds, last='and')}")
+            if user and guilds:
+                users.append(f"{user.mention} - {formats.join(guilds, last='and')}")
 
-            if users:
-                em.add_field(name="Blocked Users", value="\n".join(users))
+        if users:
+            em.add_field(name="Blocked Users", value="\n".join(users), inline=False)
 
-            channels = []
-            for channel_id in settings["blocked_channels"]:
-                channel = self.bot.get_channel(channel_id) and user in channel.guild
-                if channel:
-                    channels.append(channel.mention)
+        channels = []
+        for channel_id in settings["blocked_channels"]:
+            channel = self.bot.get_channel(channel_id)
 
-            if channels:
-                em.add_field(name="Blocked Channels", value="\n".join(channels))
+            if channel and user in channel.guild.members:
+                channels.append(f"{channel.mention} - `{channel.guild.name}`")
 
-            await ctx.send(embed=em, delete_after=10, ephemeral=True)
+        if channels:
+            em.add_field(name="Blocked Channels", value="\n".join(channels), inline=False)
+
+        if settings["disabled"]:
+            em.description = ":no_entry_sign: Highlight is currently disabled.\n\n"
+
+        if not channels and not users:
+            em.description += "No users or channels are blocked."
+
+        await ctx.send(embed=em, delete_after=10, ephemeral=True)
 
     @blocked.command(name="clear", description="Clear your blocked list")
     @commands.guild_only()
@@ -546,7 +553,7 @@ class Highlight(commands.Cog):
                 """
         await self.bot.db.execute(query, [], [], ctx.author.id)
 
-        await ctx.send(f":white_check_mark: Your blocked list has been cleared.", ephemeral=True)
+        await ctx.send(f":white_check_mark: Your blocked users and channels have been cleared.", ephemeral=True)
 
     @commands.hybrid_command(name="enable", description="Enable highlight")
     @commands.guild_only()
@@ -564,8 +571,10 @@ class Highlight(commands.Cog):
         await ctx.send(":white_check_mark: Highlight has been enabled.", delete_after=5, ephemeral=True)
 
     @commands.hybrid_command(name="disable", description="Disable highlight", aliases=["dnd"])
-    async def disable(self, ctx, *, duration: TimeConverter = None):
+    async def disable(self, ctx, *, duration: typing.Optional[human_time.FutureTime]):
+        time = duration.time if duration else None
         timers = self.bot.get_cog("Timers")
+
         await timers.cancel_timer(ctx.author.id, "disable")
 
         query = """INSERT INTO settings (user_id, disabled, blocked_users, blocked_channels)
@@ -579,35 +588,38 @@ class Highlight(commands.Cog):
                    WHERE timers.event='disabled' AND timers.data=$2;
                 """
 
-        if duration:
-            await timers.create_timer(ctx.author.id, "disabled", duration, {})
+        if time:
+            await timers.create_timer(ctx.author.id, "disabled", time, {})
 
-            timestamp = duration.replace(tzinfo=datetime.timezone.utc).timestamp()
+            timestamp = time.replace(tzinfo=datetime.timezone.utc).timestamp()
             await ctx.send(f":no_entry_sign: Highlight has been disabled {f'until <t:{int(timestamp)}:F>'}.", delete_after=5, ephemeral=True)
         else:
             await ctx.send(":no_entry_sign: Highlight has been disabled until you enable it again.", delete_after=5, ephemeral=True)
 
     @commands.hybrid_command(name="stats", description="View stats about the bot")
     async def stats(self, ctx):
-        highlights = await self.bot.db.fetch("SELECT * FROM highlights;")
+        async with ctx.typing():
+            highlights = await self.bot.db.fetchrow("SELECT COUNT(*) FROM highlights;")
+            highlights_here = await self.bot.db.fetchrow("SELECT COUNT(*) FROM highlights WHERE highlights.guild_id=$1;", ctx.guild.id)
 
-        em = discord.Embed(title="Highlight Stats", color=discord.Color.blurple())
-        em.add_field(name="Total Highlights", value=len(highlights))
-        em.add_field(name="Total Highlights Here", value=len([highlight for highlight in highlights if highlight["guild_id"] == ctx.guild.id]))
+            em = discord.Embed(title="Highlight Stats", color=discord.Color.blurple())
+            em.add_field(name="Total Highlights", value=highlights["count"])
+            em.add_field(name="Total Highlights Here", value=highlights_here["count"])
+
         await ctx.send(embed=em)
 
-    @add.after_invoke
-    @remove.after_invoke
-    @clear.after_invoke
-    @transfer.after_invoke
-    @show.after_invoke
-    @block.after_invoke
-    @unblock.after_invoke
-    @blocked.after_invoke
-    @blocked_clear.after_invoke
-    @enable.after_invoke
-    @disable.after_invoke
-    async def privacy(self, ctx):
+    @add.before_invoke
+    @remove.before_invoke
+    @clear.before_invoke
+    @transfer.before_invoke
+    @show.before_invoke
+    @block.before_invoke
+    @unblock.before_invoke
+    @blocked.before_invoke
+    @blocked_clear.before_invoke
+    @enable.before_invoke
+    @disable.before_invoke
+    async def ensure_privacy(self, ctx):
         if ctx.interaction:
             return
 
