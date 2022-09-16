@@ -120,7 +120,14 @@ class Meta(commands.Cog):
     @commands.hybrid_command(name="invite", description="Get a invite link to add me to your server")
     async def invite(self, ctx):
         perms = discord.Permissions.none()
+        perms.read_messages = True
+        perms.send_messages = True
+        perms.send_messages_in_threads = True
         perms.manage_messages = True
+        perms.embed_links = True
+        perms.attach_files = True
+        perms.read_message_history = True
+        perms.add_reactions = True
         await ctx.send(f"<{discord.utils.oauth_url(self.bot.user.id, permissions=perms)}>")
 
     @commands.Cog.listener()
