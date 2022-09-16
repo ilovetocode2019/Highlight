@@ -291,7 +291,7 @@ class Highlight(commands.Cog):
             if cached_word["user_id"] == ctx.author.id and cached_word["guild_id"] == ctx.guild.id and cached_word["word"] == word:
                 self.bot.cached_words.remove(cached_word)
 
-    @commands.hybrid_command(name="show", description="See all your highlight wo", aliases=["words", "list"])
+    @commands.hybrid_command(name="show", description="See all your highlight words", aliases=["words", "list"])
     @commands.guild_only()
     async def show(self, ctx):
         words = [cached_word for cached_word in self.bot.cached_words if cached_word["user_id"] == ctx.author.id and cached_word["guild_id"] == ctx.guild.id]
