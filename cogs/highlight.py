@@ -49,8 +49,6 @@ class TransferWordsView(discord.ui.View):
         self.server_select_menu = ServerSelect(guilds)
         self.add_item(self.server_select_menu)
 
-        self.blocked._fallback_command.wrapped.cog = self # Temporary fix for discord.py bug
-
     @discord.ui.button(label="Transfer", style=discord.ButtonStyle.success)
     async def transfer(self, interaction, button):
         options = self.server_select_menu.values
@@ -108,6 +106,8 @@ class Highlight(commands.Cog):
         self.bot = bot
         self._highlight_batch = []
         self._batch_lock = asyncio.Lock()
+
+        self.blocked._fallback_command.wrapped.cog = self # Temporary fix for discord.py bug
 
         self.bulk_insert_loop.add_exception_type(asyncpg.PostgresConnectionError)
         self.bulk_insert_loop.start()
@@ -460,7 +460,7 @@ class Highlight(commands.Cog):
             try:
                 entity = await commands.TextChannelConverter().convert(ctx, entity)
             except commands.BadArgument:
-                return await ctx.send(f"Channel or user {entity} not found.")
+                return await ctx.send(f"Channel or user `{entity}` not found.")
 
         result = await self.do_block(ctx.author.id, entity)
         await ctx.send(result, delete_after=5)
@@ -474,7 +474,7 @@ class Highlight(commands.Cog):
             try:
                 entity = await commands.TextChannelConverter().convert(ctx, entity)
             except commands.BadArgument:
-                return await ctx.send(f"Channel or user {entity} not found.")
+                return await ctx.send(f"Channel or user `{entity}` not found.")
 
         result = await self.do_unblock(ctx.author.id, entity)
         await ctx.send(result, delete_after=5)
