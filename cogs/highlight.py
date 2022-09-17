@@ -101,8 +101,8 @@ class Highlight(commands.Cog):
 
     async def get_user_settings(self, user_id):
         query = """SELECT *
-                    FROM settings
-                    WHERE settings.user_id=$1;
+                   FROM settings
+                   WHERE settings.user_id=$1;
                 """
         settings = await self.bot.db.fetchrow(query, user_id)
 
@@ -170,14 +170,7 @@ class Highlight(commands.Cog):
         elif (await self.bot.get_context(message)).valid:
             return
 
-        # Get user settings to check for block/disabled
-        query = """SELECT *
-                   FROM settings
-                   WHERE settings.user_id=$1;
-                """
-        settings = await self.bot.db.fetchrow(query, member.id)
-        if not settings:
-            settings = {"user_id": member.id, "disabled": False, "blocked_users": [], "blocked_channels": []}
+        settings = await self.get_user_settings(member.id)
 
         # Don't highlight if the user themsel
         if member.id == message.author.id:
@@ -328,9 +321,12 @@ class Highlight(commands.Cog):
     @commands.guild_only()
     async def clear(self, ctx):
         query = """DELETE FROM words
-                    WHERE words.user_id=$1 AND words.guild_id=$2;
+                   WHERE words.user_id=$1 AND words.guild_id=$2;
                 """
         result = await self.bot.db.execute(query, ctx.author.id, ctx.guild.id)
+
+        if result == "DELETE 0":
+            return await ctx.send(f"You have no highlight words in this server to delete.", delete_after=5, ephemeral=True)
 
         await ctx.send(f":white_check_mark: Your highlight list has been cleared in this server.", delete_after=5, ephemeral=True)
 
@@ -384,87 +380,59 @@ class Highlight(commands.Cog):
         view.message = await interaction.original_response()
 
     async def do_block(self, user_id, entity):
-        query = """SELECT *
-                   FROM settings
-                   WHERE settings.user_id=$1;
-                """
-        settings = await self.bot.db.fetchrow(query, user_id)
+        settings = await self.get_user_settings(user_id)
 
         if isinstance(entity, discord.User) or isinstance(entity, discord.Member):
-            if settings:
-                if entity.id in settings["blocked_users"]:
-                    return "This user is already blocked."
-                else:
-                    settings["blocked_users"].append(entity.id)
-                    query = """UPDATE settings
-                               SET blocked_users=$1
-                               WHERE settings.user_id=$2;
-                            """
-                    await self.bot.db.execute(query, settings["blocked_users"], user_id)
-                    return f":no_entry_sign: Blocked `{entity}`."
+            if entity.id in settings["blocked_users"]:
+                return "This user is already blocked."
             else:
-                query = """INSERT INTO settings (user_id, disabled, blocked_users, blocked_channels)
-                           VALUES ($1, $2, $3, $4);
+                settings["blocked_users"].append(entity.id)
+                query = """UPDATE settings
+                            SET blocked_users=$1
+                            WHERE settings.user_id=$2;
                         """
-                await self.bot.db.execute(query, user_id, False, [entity.id], [])
-                return f":no_entry_sign: Blocked `{entity.display_name}`."
+                await self.bot.db.execute(query, settings["blocked_users"], user_id)
+                return f":no_entry_sign: Blocked `{entity}`."
 
         elif isinstance(entity, discord.TextChannel) or isinstance(entity, discord.CategoryChannel):
-            if settings:
-                if entity.id in settings["blocked_channels"]:
-                    return "This channel is already blocked."
+            if entity.id in settings["blocked_channels"]:
+                return "This channel is already blocked."
 
-                else:
-                    settings["blocked_channels"].append(entity.id)
-                    query = """UPDATE settings
-                               SET blocked_channels=$1
-                               WHERE settings.user_id=$2;
-                            """
-                    await self.bot.db.execute(query, settings["blocked_channels"], user_id)
-                    return f":no_entry_sign: Blocked {entity.mention}."
             else:
-                query = """INSERT INTO settings (user_id, disabled, blocked_users, blocked_channels)
-                           VALUES ($1, $2, $3, $4);
+                settings["blocked_channels"].append(entity.id)
+                query = """UPDATE settings
+                            SET blocked_channels=$1
+                            WHERE settings.user_id=$2;
                         """
-                await self.bot.db.execute(query, user_id, False, [], [entity.id])
-                return f":no_entry_sign: Blocked `{entity.mention}`."
+                await self.bot.db.execute(query, settings["blocked_channels"], user_id)
+                return f":no_entry_sign: Blocked {entity.mention}."
 
     async def do_unblock(self, user_id, entity):
-        query = """SELECT *
-                   FROM settings
-                   WHERE settings.user_id=$1;
-                """
-        settings = await self.bot.db.fetchrow(query, user_id)
+        settings = await self.get_user_settings(user_id)
 
         if isinstance(entity, discord.User) or isinstance(entity, discord.Member):
-            if settings:
-                if entity.id not in settings["blocked_users"]:
-                    return "This user is not blocked."
-                else:
-                    settings["blocked_users"].remove(entity.id)
-                    query = """UPDATE settings
-                               SET blocked_users=$1
-                               WHERE settings.user_id=$2;
-                            """
-                    await self.bot.db.execute(query, settings["blocked_users"], user_id)
-                    return f":white_check_mark: Unblocked `{entity}`."
-            else:
+            if entity.id not in settings["blocked_users"]:
                 return "This user is not blocked."
-
-        elif isinstance(entity, discord.TextChannel):
-            if settings:
-                if entity.id not in settings["blocked_channels"]:
-                    return "This channel is not blocked."
-                else:
-                    settings["blocked_channels"].remove(entity.id)
-                    query = """UPDATE settings
-                               SET blocked_channels=$1
-                               WHERE settings.user_id=$2;
-                            """
-                    await self.bot.db.execute(query, settings["blocked_channels"], user_id)
-                    return f":white_check_mark: Unblocked {entity.mention}."
             else:
+                settings["blocked_users"].remove(entity.id)
+                query = """UPDATE settings
+                            SET blocked_users=$1
+                            WHERE settings.user_id=$2;
+                        """
+                await self.bot.db.execute(query, settings["blocked_users"], user_id)
+                return f":white_check_mark: Unblocked `{entity}`."
+
+        elif isinstance(entity, discord.TextChannel) or isinstance(entity, discord.CategoryChannel):
+            if entity.id not in settings["blocked_channels"]:
                 return "This channel is not blocked."
+            else:
+                settings["blocked_channels"].remove(entity.id)
+                query = """UPDATE settings
+                            SET blocked_channels=$1
+                            WHERE settings.user_id=$2;
+                        """
+                await self.bot.db.execute(query, settings["blocked_channels"], user_id)
+                return f":white_check_mark: Unblocked {entity.mention}."
 
     async def get_entity(self, ctx, entity):
         # Essentially typing.Union[discord.Member, discord.User, discord.TextChannel, discord.CategoryChannel]
@@ -482,7 +450,7 @@ class Highlight(commands.Cog):
     async def block(self, ctx, *, entity):
         converted_entity = await self.get_entity(ctx, entity)
 
-        if not converted_entity:
+        if not converted_entity or (isinstance(converted_entity, discord.TextChannel) and ctx.author not in converted_entity.members):
             return await ctx.send(f"User or channel `{entity}` not found.", delete_after=5)
 
         result = await self.do_block(ctx.author.id, converted_entity)
@@ -523,11 +491,7 @@ class Highlight(commands.Cog):
     @commands.hybrid_group(name="blocked", fallback="show", description="Show your blocked list", invoke_without_command=True)
     @commands.guild_only()
     async def blocked(self, ctx):
-        query = """SELECT *
-                   FROM settings
-                   WHERE settings.user_id=$1;
-                """
-        settings = await self.bot.db.fetchrow(query, ctx.author.id)
+        settings = await self.get_user_settings(ctx.author.id)
 
         em = discord.Embed(description="", color=discord.Color.blurple())
         em.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
@@ -564,6 +528,11 @@ class Highlight(commands.Cog):
     @blocked.command(name="clear", description="Clear your blocked list")
     @commands.guild_only()
     async def blocked_clear(self, ctx):
+        settings = await self.get_user_settings(ctx.author.id)
+
+        if not settings["blocked_users"] and not settings["blocked_channels"]:
+            return await ctx.send("You have no users or channels blocked.", delete_after=5, ephemeral=True)
+
         query = """UPDATE settings
                    SET blocked_users=$1, blocked_channels=$2
                    WHERE settings.user_id=$3;
@@ -575,6 +544,10 @@ class Highlight(commands.Cog):
     @commands.hybrid_command(name="enable", description="Enable highlight")
     @commands.guild_only()
     async def enable(self, ctx):
+        settings = await self.get_user_settings(ctx.author.id)
+        if not settings["disabled"]:
+            return await ctx.send("You already have highlight enabled.", delete_after=5, ephemeral=True)
+
         timers = self.bot.get_cog("Timers")
         await timers.cancel_timer(ctx.author.id, "disable")
 
@@ -590,6 +563,10 @@ class Highlight(commands.Cog):
     @commands.hybrid_command(name="disable", description="Disable highlight", aliases=["dnd"])
     @commands.guild_only()
     async def disable(self, ctx, *, duration: typing.Optional[human_time.FutureTime]):
+        settings = await self.get_user_settings(ctx.author.id)
+        if settings["disabled"]:
+            return await ctx.send("You already have highlight disabled.", delete_after=5, ephemeral=True)
+
         time = duration.time if duration else None
         timers = self.bot.get_cog("Timers")
 
@@ -630,9 +607,9 @@ class Highlight(commands.Cog):
 
     @add.before_invoke
     @remove.before_invoke
+    @show.before_invoke
     @clear.before_invoke
     @transfer.before_invoke
-    @show.before_invoke
     @block.before_invoke
     @unblock.before_invoke
     @blocked.before_invoke
