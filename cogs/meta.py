@@ -18,7 +18,7 @@ class HighlightHelpCommand(commands.HelpCommand):
 
         commands = await self.filter_commands(bot.commands)
         for command in commands:
-            em.description += f"`{self.get_command_signature(command)}` {f'- {command.description}' if command.description else ''}\n"
+            em.description += f"`{self.get_command_signature(command).strip()}` {f'- {command.description}' if command.description else ''}\n"
 
         em.description += "\n\nKey: `<required> [optional]`. **Remove <> and [] when using the command**."
 
@@ -49,11 +49,15 @@ class HighlightHelpCommand(commands.HelpCommand):
         em.set_thumbnail(url=bot.user.display_avatar.url)
 
         if group.aliases:
-            em.description += f"\nAliases: {', '.join(group.aliases)}\n"
+            em.description += f"\nAliases: {', '.join(group.aliases)}"
 
         commands = await self.filter_commands(group.commands)
+
+        if commands:
+            em.description += "\n"
+
         for command in commands:
-            em.description += f"`{self.get_command_signature(command)}` {f'- {command.description}' if command.description else ''}\n"
+            em.description += f"\n`{self.get_command_signature(command).strip()}` {f'- {command.description}' if command.description else ''}\n"
 
         em.description += self.bottom_text.format(bot.support_server_invite)
 
