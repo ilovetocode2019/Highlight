@@ -21,15 +21,6 @@ extensions = [
     "cogs.timers"
 ]
 
-
-class OptionMissing(Exception):
-    pass
-
-
-class InvalidOption(Exception):
-    pass
-
-
 class HighlightBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents(guilds=True, members=True, messages=True, reactions=True, guild_typing=True, message_content=True)
