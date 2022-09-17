@@ -154,11 +154,10 @@ class Highlight(commands.Cog):
 
     @commands.Cog.listener()
     async def on_highlight(self, message, word, text):
-        try:
-            member = await message.guild.fetch_member(word["user_id"])
-        except discord.NotFound:
+        member = message.guild.get_member(word["user_id"])
+
+        if not member:
             log.info("Unknown user ID %s (guild ID %s)", word["user_id"], word["guild_id"])
-            return
 
         # Don't highlight if they were already pinged
         if member in message.mentions:
@@ -541,7 +540,7 @@ class Highlight(commands.Cog):
 
         await ctx.send(f":white_check_mark: Your blocked users and channels have been cleared.", ephemeral=True)
 
-    @commands.hybrid_command(name="enable", description="Enable highlight")
+    @commands.hybrid_command(name="enable", description="Enable highlight for yourself")
     @commands.guild_only()
     async def enable(self, ctx):
         settings = await self.get_user_settings(ctx.author.id)
@@ -560,7 +559,7 @@ class Highlight(commands.Cog):
 
         await ctx.send(":white_check_mark: Highlight has been enabled.", delete_after=5, ephemeral=True)
 
-    @commands.hybrid_command(name="disable", description="Disable highlight", aliases=["dnd"])
+    @commands.hybrid_command(name="disable", description="Disable highlight for yourself", aliases=["dnd"])
     @commands.guild_only()
     async def disable(self, ctx, *, duration: typing.Optional[human_time.FutureTime]):
         settings = await self.get_user_settings(ctx.author.id)
