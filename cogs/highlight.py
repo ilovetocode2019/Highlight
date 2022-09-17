@@ -99,6 +99,18 @@ class Highlight(commands.Cog):
         self.bulk_insert_loop.add_exception_type(asyncpg.PostgresConnectionError)
         self.bulk_insert_loop.start()
 
+    async def get_user_settings(self, user_id):
+        query = """SELECT *
+                    FROM settings
+                    WHERE settings.user_id=$1;
+                """
+        settings = await self.bot.db.fetchrow(query, user_id)
+
+        if settings:
+            return dict(settings)
+        elif not settings:
+            return {"user_id": user_id, "disabled": False, "blocked_users": [], "blocked_channels": []}
+
     async def cog_unload(self):
         log.info("Stopping bulk insert loop")
         self.bulk_insert_loop.stop()
@@ -149,13 +161,13 @@ class Highlight(commands.Cog):
             return
 
         # Don't highlight if they were already pinged
-        if member in mesage.mentions:
+        if member in message.mentions:
             return
         # Don't highlight if they can't even see the channel
         elif member not in message.channel.members:
             return
         # Don't highlight if it's a command
-        elif (await self.bot.get_context(self.message)).valid:
+        elif (await self.bot.get_context(message)).valid:
             return
 
         # Get user settings to check for block/disabled
@@ -167,11 +179,16 @@ class Highlight(commands.Cog):
         if not settings:
             settings = {"user_id": member.id, "disabled": False, "blocked_users": [], "blocked_channels": []}
 
-        # Don't highlight if they disabled it
-        if member.id == message.author.id or settings["disabled"]:
+        # Don't highlight if the user themsel
+        if member.id == message.author.id:
             return
-        # Don't highlight if they blocked the trigger author
-        elif message.channel.id in settings["blocked_channels"] or message.channel.id in settings["blocked_channels"] or message.channel.message.author.id in settings["blocked_users"]:
+        elif settings["disabled"]:
+            return
+        # Don't highlight if they blocked the trigger author or channel
+        elif message.channel.id in settings["blocked_channels"] or message.author.id in settings["blocked_users"]:
+            return
+        # Don't highlight if they blocked the entire category
+        elif message.channel.category and message.channel.category.id in settings["blocked_channels"]:
             return
 
         # Prepare highlight message
@@ -463,23 +480,23 @@ class Highlight(commands.Cog):
     @commands.hybrid_group(name="block", description="Block a user or channel", usage="<user or channel>", aliases=["ignore", "mute"], invoke_without_command=True)
     @commands.guild_only()
     async def block(self, ctx, *, entity):
-        entity = await self.get_entity(ctx, entity)
+        converted_entity = await self.get_entity(ctx, entity)
 
-        if not entity:
-            return await ctx.send(f"User or channel `{entity}` not found.")
+        if not converted_entity:
+            return await ctx.send(f"User or channel `{entity}` not found.", delete_after=5)
 
-        result = await self.do_block(ctx.author.id, entity)
+        result = await self.do_block(ctx.author.id, converted_entity)
         await ctx.send(result, delete_after=5)
 
     @commands.hybrid_group(name="unblock", description="Unblock a user or channel", usage="<user or channel>", aliases=["unmute"], invoke_without_command=True)
     @commands.guild_only()
     async def unblock(self, ctx, *, entity):
-        entity = await self.get_entity(ctx, entity)
+        converted_entity = await self.get_entity(ctx, entity)
 
-        if not entity:
-            return await ctx.send(f"User or channel `{entity}` not found.")
+        if not converted_entity:
+            return await ctx.send(f"User or channel `{entity}` not found.", delete_after=5)
 
-        result = await self.do_unblock(ctx.author.id, entity)
+        result = await self.do_unblock(ctx.author.id, converted_entity)
         await ctx.send(result, delete_after=5)
 
     # Block and unblock slash commands
@@ -530,7 +547,7 @@ class Highlight(commands.Cog):
         for channel_id in settings["blocked_channels"]:
             channel = self.bot.get_channel(channel_id)
 
-            if channel and user in channel.guild.members:
+            if channel and ctx.author in channel.guild.members:
                 channels.append(f"{channel.mention} - `{channel.guild.name}`")
 
         if channels:
@@ -571,6 +588,7 @@ class Highlight(commands.Cog):
         await ctx.send(":white_check_mark: Highlight has been enabled.", delete_after=5, ephemeral=True)
 
     @commands.hybrid_command(name="disable", description="Disable highlight", aliases=["dnd"])
+    @commands.guild_only()
     async def disable(self, ctx, *, duration: typing.Optional[human_time.FutureTime]):
         time = duration.time if duration else None
         timers = self.bot.get_cog("Timers")
@@ -599,12 +617,14 @@ class Highlight(commands.Cog):
     @commands.hybrid_command(name="stats", description="View stats about the bot")
     async def stats(self, ctx):
         async with ctx.typing():
-            highlights = await self.bot.db.fetchrow("SELECT COUNT(*) FROM highlights;")
-            highlights_here = await self.bot.db.fetchrow("SELECT COUNT(*) FROM highlights WHERE highlights.guild_id=$1;", ctx.guild.id)
-
             em = discord.Embed(title="Highlight Stats", color=discord.Color.blurple())
+
+            highlights = await self.bot.db.fetchrow("SELECT COUNT(*) FROM highlights;")
             em.add_field(name="Total Highlights", value=highlights["count"])
-            em.add_field(name="Total Highlights Here", value=highlights_here["count"])
+
+            if ctx.guild:
+                highlights_here = await self.bot.db.fetchrow("SELECT COUNT(*) FROM highlights WHERE highlights.guild_id=$1;", ctx.guild.id)
+                em.add_field(name="Total Highlights Here", value=highlights_here["count"])
 
         await ctx.send(embed=em)
 
